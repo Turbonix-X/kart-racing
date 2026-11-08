@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#0d0c12">
+    <title>Kart Racing — Turbonix</title>
+    <link rel="icon" href="./logo.svg" type="image/svg+xml">
+    <script>
+        // Applique le thème avant l'affichage pour éviter un flash
+        (function () {
+            var theme = null;
+            try { theme = JSON.parse(localStorage.getItem('kartRacing_v2')).settings.theme; } catch (e) {}
+            document.documentElement.dataset.theme = theme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+        })();
+    </script>
+    <!-- build:css -->
+    <link rel="stylesheet" href="./turbonix.css">
+    <link rel="stylesheet" href="./style.css">
+    <!-- /build:css -->
+</head>
+<body>
+    <div id="game-canvas" aria-hidden="true"></div>
+
+    <!-- =================== CHARGEMENT =================== -->
+    <div id="loading" role="status" aria-live="polite">
+        <div class="load-inner">
+            <img class="load-logo" src="./logo.svg" alt="" width="84" height="84">
+            <div class="load-title">Kart <span>Racing</span></div>
+            <div id="load-sub" class="load-sub">Turbonix Entertainment</div>
+            <div class="load-track">
+                <div class="load-road"></div>
+                <div id="load-car" class="load-car" aria-hidden="true">
+                    <svg viewBox="0 0 64 28"><path d="M6 20h52c2 0 3-1 3-3v-3c0-2-2-3-4-3l-9-1-8-6H22l-8 6-7 1c-2 0-4 2-4 4v2c0 2 1 3 3 3z" fill="#ff8c1a"/><path d="M23 7h15l6 4H18z" fill="#bfe8ff"/><circle cx="17" cy="21" r="5" fill="#15131c"/><circle cx="47" cy="21" r="5" fill="#15131c"/><circle cx="17" cy="21" r="2" fill="#ddd"/><circle cx="47" cy="21" r="2" fill="#ddd"/><rect x="28" y="12" width="14" height="3" rx="1" fill="#22c55e"/></svg>
+                </div>
+                <div id="load-bar" class="load-bar"><span id="load-fill"></span></div>
+            </div>
+            <div class="load-row"><span id="load-label">Démarrage</span><span id="load-pct">0 %</span></div>
+            <p id="load-tip" class="load-tip"></p>
+        </div>
+        <p class="load-studio">Turbonix Entertainment</p>
+    </div>
+
+    <!-- =================== ÉCRAN TITRE =================== -->
+    <div id="title" class="title-screen" hidden>
+        <div class="title-vignette" aria-hidden="true"></div>
+        <div class="title-top">
+            <span class="logo"><img src="./logo.svg" alt="Logo Turbonix" width="44" height="44"></span>
+            <div class="title-top-right">
+                <span id="title-points" class="points-pill"></span>
+                <button id="title-sound" class="hbtn" title="Sons" aria-label="Activer ou couper les sons">
+                    <svg class="on" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg>
+                    <svg class="off" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="m22 9-6 6"/><path d="m16 9 6 6"/></svg>
+                </button>
+            </div>
+        </div>
+        <div class="title-main">
+            <h1 class="game-logo"><span class="l1">KART</span><span class="l2">RACING</span></h1>
+            <p class="title-version"><span id="title-version"></span> · <span id="title-tagline">10 objets, 4 biomes, 7 bolides</span></p>
+            <nav class="title-menu" aria-label="Menu principal">
+                <button id="t-play" class="btn btn-primary">▶ Jouer</button>
+                <button id="t-news" class="btn title-btn"><span data-icon="news"></span>Nouveautés</button>
+                <button id="t-help" class="btn title-btn"><span data-icon="keys"></span>Commandes</button>
+                <button id="t-settings" class="btn title-btn"><span data-icon="settings"></span>Réglages</button>
+            </nav>
+        </div>
+        <div class="title-bottom">
+            <span id="demo-tag" class="demo-tag"></span>
+            <span class="title-studio">Turbonix Entertainment</span>
+        </div>
+    </div>
+
+    <!-- =================== PRÉPARATION DE LA COURSE =================== -->
+    <div id="menu" class="screen" hidden>
+        <div class="bg-blobs" aria-hidden="true"><span></span><span></span><span></span></div>
+
+        <header class="site-header">
+            <div class="header-inner">
+                <div class="header-left">
+                    <button id="btn-home" class="hbtn" title="Accueil" aria-label="Retour à l'accueil"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+                    <h1 class="site-title">Kart <span>Racing</span> <small id="version" class="version-tag"></small></h1>
+                </div>
+                <div class="header-right">
+                    <span id="points-display" class="points-pill" title="Points de médailles"></span>
+                    <button id="btn-sound" class="hbtn" title="Sons activés" aria-label="Activer ou couper les sons">
+                        <svg class="on" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg>
+                        <svg class="off" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="m22 9-6 6"/><path d="m16 9 6 6"/></svg>
+                    </button>
+                    <button id="btn-help" class="hbtn" title="Commandes" aria-label="Voir les commandes">
+                        <svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 15h10"/></svg>
+                    </button>
+                    <button id="btn-settings" class="hbtn" title="Réglages" aria-label="Ouvrir les réglages">
+                        <svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
+                    </button>
+                    <button id="btn-theme" class="theme-toggle" aria-label="Changer de thème" title="Mode sombre / clair">
+                        <span class="theme-icon sun">☀️</span>
+                        <span class="theme-icon moon">🌙</span>
+                    </button>
+                    <span class="logo" aria-label="Turbonix Entertainment"><img src="./logo.svg" alt="Logo Turbonix" width="44" height="44"></span>
+                </div>
+            </div>
+        </header>
+
+        <main class="container">
+            <section class="card full play">
+                <div class="stage-top">
+                    <div id="mode-tabs" class="presets" role="radiogroup" aria-label="Mode de jeu"></div>
+                    <p id="mode-desc" class="mode-desc"></p>
+                </div>
+                <div class="stage-zone showroom">
+                    <div id="preview" class="preview"></div>
+                    <button id="prev-car" class="arrow-btn left" aria-label="Véhicule précédent">‹</button>
+                    <button id="next-car" class="arrow-btn right" aria-label="Véhicule suivant">›</button>
+                    <div class="showroom-label">
+                        <strong id="car-name"></strong>
+                        <small id="car-desc"></small>
+                    </div>
+                </div>
+                <div class="actions start-actions">
+                    <button id="start-btn" class="btn btn-primary">🏁 Lance la course !</button>
+                </div>
+                <p class="hint">Astuce : <kbd>Maj</kbd> pour un saut synchro, maintiens-le en tournant pour drifter · <kbd>E</kbd> lance un objet</p>
+            </section>
+
+            <section class="card">
+                <div class="card-head"><h2>Véhicule <span id="player-label" class="muted"></span></h2></div>
+                <div id="vehicle-grid" class="vehicle-grid" role="radiogroup" aria-label="Véhicule"></div>
+                <div id="carStatsDisplay" class="bars car-bars"></div>
+                <div class="divider">
+                    <h3 class="first-h3">Couleur</h3>
+                    <div id="colorPicker" class="swatches" role="radiogroup" aria-label="Couleur du véhicule"></div>
+                </div>
+                <div id="p2-panel" class="divider" hidden>
+                    <h3 class="first-h3">Joueur 2</h3>
+                    <div class="options-row">
+                        <label class="field">Véhicule <select id="p2-vehicle" class="select"></select></label>
+                        <label class="field">Couleur <select id="p2-color" class="select"></select></label>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-head"><h2>Circuit</h2></div>
+                <div id="track-grid" class="track-grid" role="radiogroup" aria-label="Circuit"></div>
+                <p id="track-desc" class="muted small track-desc"></p>
+                <h3>Biome</h3>
+                <div id="biome-grid" class="biome-grid" role="radiogroup" aria-label="Biome"></div>
+                <p id="biome-desc" class="muted small"></p>
+                <div class="options-row divider">
+                    <label id="lap-field" class="field">Tours
+                        <select id="lapCount" class="select">
+                            <option value="1">1 tour</option>
+                            <option value="3">3 tours</option>
+                            <option value="5">5 tours</option>
+                            <option value="10">10 tours</option>
+                            <option value="20">20 tours</option>
+                        </select>
+                    </label>
+                    <label id="bots-field" class="field">Adversaires
+                        <select id="botCount" class="select">
+                            <option value="0">Aucun</option>
+                            <option value="1">1</option>
+                            <option value="3">3</option>
+                            <option value="5">5</option>
+                        </select>
+                    </label>
+                    <label id="diff-field" class="field">Difficulté
+                        <select id="difficulty" class="select">
+                            <option value="easy">Facile</option>
+                            <option value="normal">Normal</option>
+                            <option value="hard">Difficile</option>
+                        </select>
+                    </label>
+                </div>
+                <div id="best-time-display" class="info alt best-time"></div>
+            </section>
+
+            <section class="card full">
+                <div class="card-head"><h2>Les 10 objets des boîtes mystère</h2><span class="muted small">Ramasse une boîte, puis lance l'objet avec <kbd>E</kbd></span></div>
+                <div id="items-grid" class="items-grid"></div>
+            </section>
+        </main>
+
+        <footer class="site-footer">
+            <p><span id="year"></span> Turbonix Entertainment. Tous droits réservés.</p>
+        </footer>
+    </div>
+
+    <!-- =================== EN COURSE =================== -->
+    <div id="hud-root" hidden></div>
+    <canvas id="minimap" width="220" height="220" hidden aria-hidden="true"></canvas>
+    <button id="pause-btn" class="hbtn" hidden aria-label="Pause" title="Pause (Échap)">
+        <svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg>
+    </button>
+    <div id="countdown" aria-live="assertive"></div>
+
+    <!-- Cinématique : bandes noires et carte du circuit -->
+    <div id="intro" hidden>
+        <div class="cine-bar top"></div>
+        <div class="cine-bar bottom"></div>
+        <div class="intro-card">
+            <small id="intro-kicker"></small>
+            <strong id="intro-track"></strong>
+            <span id="intro-biome"></span>
+        </div>
+        <p class="intro-skip">Appuie sur une touche pour passer</p>
+    </div>
+    <div id="finish-banner" hidden><span id="finish-text"></span><small id="finish-sub"></small></div>
+    <div id="cut-flash" aria-hidden="true"></div>
+
+    <div id="touch-controls" hidden>
+        <div class="touch-left">
+            <button data-touch="left" aria-label="Gauche">◀</button>
+            <button data-touch="right" aria-label="Droite">▶</button>
+        </div>
+        <div class="touch-right">
+            <button data-touch="item" aria-label="Objet">★</button>
+            <button data-touch="jump" aria-label="Saut">⤒</button>
+            <button data-touch="drift" aria-label="Saut synchro et drift">⟳</button>
+            <button data-touch="brake" aria-label="Frein">■</button>
+            <button data-touch="gas" class="gas" aria-label="Accélérer">▲</button>
+        </div>
+    </div>
+
+    <!-- =================== SUPERPOSITIONS =================== -->
+    <div id="pause-overlay" class="overlay" hidden>
+        <div class="panel">
+            <h2>Pause</h2>
+            <button id="resume-btn" class="btn btn-primary">▶ Reprendre</button>
+            <button id="restart-btn" class="btn btn-ghost">🔁 Recommencer</button>
+            <button id="pause-help-btn" class="btn btn-ghost">⌨️ Commandes</button>
+            <button id="pause-settings-btn" class="btn btn-ghost">🎚️ Réglages</button>
+            <button id="quit-btn" class="btn btn-ghost">🚪 Quitter</button>
+        </div>
+    </div>
+
+    <div id="results-overlay" class="overlay" hidden>
+        <div class="panel wide">
+            <div id="results-title" class="result-title"></div>
+            <p id="results-sub" class="muted small"></p>
+            <div id="results-body"></div>
+            <div class="row">
+                <button id="results-next" class="btn btn-primary"></button>
+                <button id="results-menu" class="btn btn-ghost">Menu</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="help-overlay" class="overlay top" hidden>
+        <div class="panel wide">
+            <h2>Commandes</h2>
+            <div class="help-grid">
+                <div>
+                    <h3>⌨️ Clavier (solo)</h3>
+                    <table class="keys">
+                        <tr><td>Accélérer</td><td><kbd>Z</kbd> ou <kbd>W</kbd> / <kbd>↑</kbd></td></tr>
+                        <tr><td>Freiner, reculer</td><td><kbd>S</kbd> / <kbd>↓</kbd></td></tr>
+                        <tr><td>Tourner</td><td><kbd>Q</kbd> ou <kbd>A</kbd> et <kbd>D</kbd> / <kbd>←</kbd> <kbd>→</kbd></td></tr>
+                        <tr><td>Saut synchro</td><td>appuie sur <kbd>Maj</kbd></td></tr>
+                        <tr><td>Drift</td><td>garde <kbd>Maj</kbd> en tournant</td></tr>
+                        <tr><td>Lancer un objet</td><td><kbd>E</kbd></td></tr>
+                        <tr><td>Grand saut (Monster Truck)</td><td><kbd>Espace</kbd></td></tr>
+                        <tr><td>Retour sur la piste</td><td><kbd>R</kbd></td></tr>
+                        <tr><td>Changer de caméra</td><td><kbd>C</kbd></td></tr>
+                        <tr><td>Pause / Son</td><td><kbd>Échap</kbd> / <kbd>M</kbd></td></tr>
+                    </table>
+                </div>
+                <div>
+                    <h3>👥 2 joueurs</h3>
+                    <table class="keys">
+                        <tr><td>J1</td><td><kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd>, <kbd>Maj G</kbd> saut et drift, <kbd>E</kbd> objet, <kbd>Espace</kbd> grand saut, <kbd>R</kbd> retour</td></tr>
+                        <tr><td>J2</td><td><kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd>, <kbd>Maj D</kbd> saut et drift, <kbd>L</kbd> objet, <kbd>Entrée</kbd> grand saut, <kbd>K</kbd> retour</td></tr>
+                    </table>
+                    <h3>🎮 Manette</h3>
+                    <p class="muted small">Gâchette droite ou A : accélérer. Gâchette gauche ou B : freiner. Stick : tourner. Bumper : saut synchro et drift. X : objet. Y : grand saut. Start : pause.</p>
+                    <h3>💡 Astuces</h3>
+                    <p class="muted small">Le saut synchro passe par-dessus les flaques. Garde le drift dans un virage : la fumée passe au vert puis à l'orange, relâche pour un boost. Sur la glace, freine plus tôt.</p>
+                </div>
+            </div>
+            <div class="row"><button id="help-close" class="btn btn-primary">Fermer</button></div>
+        </div>
+    </div>
+
+    <div id="news-overlay" class="overlay top" hidden>
+        <div class="panel wide news-panel">
+            <h2>Nouveautés</h2>
+            <div id="news-body" class="news-body"></div>
+            <div class="row"><button id="news-close" class="btn btn-primary">Fermer</button></div>
+        </div>
+    </div>
+
+    <div id="settings-overlay" class="overlay top" hidden>
+        <div class="panel">
+            <h2>Réglages</h2>
+            <label class="field">🎵 Musique <input id="set-music" class="range" type="range" min="0" max="1" step="0.05"></label>
+            <label class="field">🔊 Effets <input id="set-sfx" class="range" type="range" min="0" max="1" step="0.05"></label>
+            <label class="switch"><input id="set-muted" type="checkbox"><span class="switch-track"><span class="switch-thumb"></span></span>Couper tout le son</label>
+            <label class="switch"><input id="set-shadows" type="checkbox"><span class="switch-track"><span class="switch-thumb"></span></span>Ombres (à couper sur une petite machine)</label>
+            <label class="switch"><input id="set-intro" type="checkbox"><span class="switch-track"><span class="switch-thumb"></span></span>Cinématique avant chaque course</label>
+            <div class="row">
+                <button id="reset-btn" class="btn btn-small btn-danger">Effacer la progression</button>
+                <button id="settings-close" class="btn btn-small">Fermer</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="confirm-overlay" class="overlay top" hidden>
+        <div class="panel">
+            <h2 id="confirm-message"></h2>
+            <div class="row">
+                <button id="confirm-no" class="btn btn-small">Non</button>
+                <button id="confirm-yes" class="btn btn-small btn-danger">Oui</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="fatal-overlay" class="overlay top" hidden>
+        <div class="panel">
+            <h2>Impossible de lancer le jeu</h2>
+            <p id="fatal-message" class="muted"></p>
+        </div>
+    </div>
+
+    <!-- build:changelog -->
+    <script type="text/markdown" id="changelog-src"></script>
+    <!-- /build:changelog -->
+
+    <noscript><p style="color:#fff;padding:20px">Kart Racing a besoin de JavaScript pour fonctionner.</p></noscript>
+
+    <!-- build:importmap -->
+    <script type="importmap">{ "imports": { "three": "../vendor/three.module.js" } }</script>
+    <!-- /build:importmap -->
+    <!-- build:main -->
+    <script type="module" src="./main.js"></script>
+    <!-- /build:main -->
+    <script nomodule>document.getElementById('fatal-overlay').hidden = false; document.getElementById('fatal-message').textContent = 'Ce navigateur est trop ancien. Essaie une version récente de Chrome, Edge ou Firefox.';</script>
+</body>
+</html>

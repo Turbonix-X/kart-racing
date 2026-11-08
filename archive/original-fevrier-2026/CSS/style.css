@@ -1,0 +1,315 @@
+/* ============================================
+   KART RACING Alpha 1.4 — Styles
+   ============================================ */
+
+/* --- BASE --- */
+body {
+    margin: 0;
+    overflow: hidden;
+    background: #111;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+/* --- MENU & END SCREEN --- */
+#menu, #end-screen {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: #1a1a1a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 10;
+}
+#end-screen {
+    display: none;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 20;
+}
+
+header {
+    width: 100%;
+    text-align: center;
+    padding: 20px;
+    background: #000;
+    color: #f1c40f;
+    font-size: 30px;
+    font-weight: 900;
+    border-bottom: 5px solid #f1c40f;
+}
+footer {
+    width: 100%;
+    text-align: center;
+    padding: 15px;
+    background: #000;
+    color: #8e44ad;
+    font-size: 13px;
+}
+
+.content {
+    background: #222;
+    padding: 30px;
+    border-radius: 10px;
+    border: 3px solid #f1c40f;
+    color: white;
+    text-align: center;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+/* --- COLOR PICKER --- */
+.color-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+    margin: 15px auto;
+    max-width: 250px;
+}
+.color-btn {
+    width: 32px;
+    height: 32px;
+    border: 3px solid #444;
+    cursor: pointer;
+    border-radius: 50%;
+    transition: all 0.2s;
+}
+.color-btn:hover {
+    transform: scale(1.2);
+    border-color: #f1c40f;
+}
+.color-btn.selected {
+    border-color: #f1c40f;
+    box-shadow: 0 0 10px #f1c40f;
+    transform: scale(1.15);
+}
+
+/* --- FORM ELEMENTS --- */
+select {
+    padding: 8px;
+    background: #333;
+    color: #f1c40f;
+    border: 1px solid #8e44ad;
+    font-size: 14px;
+    border-radius: 4px;
+    margin: 5px;
+}
+#start-btn, .restart-btn, .pause-btn {
+    padding: 12px 50px;
+    font-size: 20px;
+    background: #f1c40f;
+    color: #000;
+    border: none;
+    cursor: pointer;
+    border-radius: 4px;
+    margin-top: 20px;
+    font-weight: bold;
+    transition: background 0.2s;
+}
+#start-btn:hover, .restart-btn:hover, .pause-btn:hover {
+    background: #f39c12;
+}
+
+/* --- IN-GAME UI --- */
+#ui {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    color: white;
+    display: none;
+    pointer-events: none;
+}
+.stat-box {
+    background: rgba(0, 0, 0, 0.85);
+    padding: 10px 20px;
+    border-radius: 4px;
+    border-left: 5px solid #f1c40f;
+    margin-bottom: 5px;
+    font-weight: bold;
+    border-right: 2px solid #8e44ad;
+}
+#offroad-warn {
+    color: #ff3333;
+    font-weight: 900;
+    font-size: 24px;
+    display: none;
+}
+
+/* --- COUNTDOWN --- */
+#countdown {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #f1c40f;
+    font-size: 100px;
+    font-weight: 900;
+    display: none;
+    z-index: 5;
+    text-shadow: 0 0 20px #000;
+}
+
+/* --- HOME BUTTON --- */
+#home-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    padding: 10px 20px;
+    background: #222;
+    color: #f1c40f;
+    border: 2px solid #8e44ad;
+    border-radius: 4px;
+    cursor: pointer;
+    display: none;
+    z-index: 100;
+    font-weight: bold;
+}
+
+/* --- CAR STATS DISPLAY --- */
+.car-stats {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 12px;
+    text-align: left;
+    margin: 10px auto;
+    font-size: 12px;
+    color: #aaa;
+    max-width: 280px;
+}
+.car-stats .label {
+    color: #8e44ad;
+    font-weight: bold;
+}
+.car-stats .bar-bg {
+    background: #444;
+    height: 10px;
+    border-radius: 5px;
+    overflow: hidden;
+}
+.car-stats .bar-fill {
+    height: 100%;
+    border-radius: 5px;
+    transition: width 0.3s;
+}
+.section-title {
+    color: #f1c40f;
+    margin: 15px 0 8px 0;
+    font-size: 14px;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+/* --- BEST TIME DISPLAY (menu) --- */
+#best-time-display {
+    color: #f1c40f;
+    font-size: 13px;
+    margin-top: 8px;
+    font-style: italic;
+    min-height: 18px;
+}
+
+/* --- PAUSE OVERLAY --- */
+#pause-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+}
+#pause-overlay h1 {
+    color: #f1c40f;
+    font-size: 48px;
+    margin-bottom: 30px;
+    text-shadow: 0 0 20px rgba(241, 196, 15, 0.5);
+}
+#pause-overlay button {
+    padding: 12px 50px;
+    font-size: 20px;
+    background: #f1c40f;
+    color: #000;
+    border: none;
+    cursor: pointer;
+    border-radius: 4px;
+    margin: 8px;
+    font-weight: bold;
+    transition: background 0.2s;
+}
+#pause-overlay button:hover {
+    background: #f39c12;
+}
+#pause-overlay .secondary-btn {
+    background: #333;
+    color: #f1c40f;
+    border: 2px solid #8e44ad;
+}
+#pause-overlay .secondary-btn:hover {
+    background: #444;
+}
+
+/* --- CONFIRM DIALOG --- */
+#confirm-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 60;
+}
+#confirm-overlay .confirm-box {
+    background: #222;
+    border: 3px solid #f1c40f;
+    border-radius: 10px;
+    padding: 30px 40px;
+    text-align: center;
+}
+#confirm-overlay h2 {
+    color: #f1c40f;
+    margin-bottom: 20px;
+}
+#confirm-overlay button {
+    padding: 10px 30px;
+    font-size: 16px;
+    border: none;
+    cursor: pointer;
+    border-radius: 4px;
+    margin: 0 10px;
+    font-weight: bold;
+    transition: background 0.2s;
+}
+#confirm-overlay .yes-btn {
+    background: #e74c3c;
+    color: white;
+}
+#confirm-overlay .yes-btn:hover {
+    background: #c0392b;
+}
+#confirm-overlay .no-btn {
+    background: #f1c40f;
+    color: #000;
+}
+#confirm-overlay .no-btn:hover {
+    background: #f39c12;
+}
+
+/* --- NEW RECORD --- */
+.new-record {
+    color: #f1c40f;
+    font-size: 22px;
+    font-weight: bold;
+    animation: pulse 0.6s ease-in-out infinite alternate;
+}
+@keyframes pulse {
+    from { text-shadow: 0 0 5px #f1c40f; }
+    to { text-shadow: 0 0 20px #f1c40f, 0 0 40px #f39c12; }
+}
