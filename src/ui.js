@@ -4,7 +4,7 @@
 //  Style commun aux jeux Turbonix (voir turbonix.css), en tutoyant.
 //  Le texte n'est modifié dans la page que s'il a changé.
 // ============================================================
-import { VEHICLES, COLORS, MS_TO_KMH, VERSION, MEDAL_LABEL } from './config.js';
+import { VEHICLES, COLORS, MS_TO_KMH, VERSION, MEDAL_LABEL, CHARACTERS, CHARACTER_IDS, SKINS, SKIN_IDS, WHEELS, WHEEL_IDS, effectiveStats, MIN_RACERS, MAX_RACERS } from './config.js';
 import { TRACK_DEFS, TRACK_ORDER, getTrack } from './tracks.js';
 import { BIOMES, BIOME_ORDER } from './biomes.js';
 import { ITEMS, ITEM_IDS } from './sim.js';
@@ -21,6 +21,13 @@ const MODES = {
 };
 const STATS = [['speed', 'Vitesse'], ['accel', 'Accélération'], ['handling', 'Maniabilité'], ['offroad', 'Hors-piste'], ['drift', 'Drift']];
 export const TIPS = [
+    'Chaque pilote a son talent : Bob bouscule tout le monde, Shin esquive un objet sur quatre.',
+    'Les roues Tout-terrain collent à la glace et au sable, les Slicks volent sur le bitume.',
+    'En montagne, la pente freine dans les montées : prends de l\'élan dans les descentes.',
+    'Une flaque d\'eau ne fait glisser qu\'une fois, même si tu restes dedans.',
+    'Une boîte mystère se casse même si tu as déjà un objet : vise celles qui sont libres.',
+    'Kiko le singe tire de meilleurs objets dans les boîtes mystère.',
+    'L\'apparence Or massif dore le pilote et sa voiture, partout dans le jeu.',
     'Appuie sur Maj pour un saut synchro : il passe par-dessus les flaques d\'huile.',
     'Garde Maj en tournant : la fumée passe au vert puis à l\'orange, relâche pour un boost.',
     'Le missile vise la voiture juste devant toi : garde-le pour un adversaire proche.',
@@ -30,7 +37,7 @@ export const TIPS = [
     'Dans le désert, sortir de la piste coûte très cher : le sable freine.',
     'Le ressort fait passer par-dessus les rondins du Canyon Rouge.',
     'Les cônes se renversent, mais ils te ralentissent un peu.',
-    'Les médailles débloquent le Kart Éclair, le Prototype X et deux circuits.',
+    'Les médailles débloquent le Kart Éclair, le Prototype X et de nouveaux circuits.',
     'L\'éclair rapetisse et ralentit tous ceux qui sont devant toi.',
     'La tornade remonte la piste : lance-la quand le peloton est devant.',
 ];
@@ -63,11 +70,11 @@ export class UI {
         this.prefs = save.data.prefs;
         this.handlers = {};
         this.thumbs = {};
+        this.portrait = () => null;      // fourni par la vitrine 3D : (pilote, apparence) → image
         // Le pointeur principal, pas la simple présence d'un écran tactile : un PC tactile garde son clavier
         this.isTouch = window.matchMedia?.('(pointer: coarse)').matches ?? false;
         document.body.classList.toggle('touch', this.isTouch);
         for (const id of ['version', 'title-version']) setText($(id), VERSION);
-        setText($('year'), String(new Date().getFullYear()));
         hydrateIcons();
         this.sanitizePrefs();
         this.buildMenu();
@@ -87,10 +94,15 @@ export class UI {
         if (!MODES[p.mode]) p.mode = 'race';
         if (!(p.color >= 0 && p.color < COLORS.length)) p.color = 0;
         if (p.biome !== 'auto' && !BIOMES[p.biome]) p.biome = 'auto';
+        if (!CHARACTERS[p.character]) p.character = 'bob';
+        if (!SKINS[p.skin]) p.skin = 'classique';
+        if (!WHEELS[p.wheels]) p.wheels = 'route';
+        if (!CHARACTERS[p.p2Character] || p.p2Character === p.character) p.p2Character = CHARACTER_IDS.find(id => id !== p.character);
+        p.racers = Math.max(MIN_RACERS, Math.min(MAX_RACERS, +p.racers || 6));
     }
 
     // ---------- Chargement ----------
-    showLoading(sub = 'Turbonix Entertainment') {
+    showLoading(sub = VERSION) {
         const el = $('loading');
         el.hidden = false;
         el.classList.remove('done');
@@ -167,23 +179,44 @@ export class UI {
             b.onclick = () => { p.biome = id; this.refreshMenu(); };
             bg.appendChild(b);
         }
+        const skins = $('skin-tabs');
+        for (const id of SKIN_IDS) {
+            const b = document.createElement('button');
+            b.className = `chip skin-chip skin-${id}`; b.dataset.id = id;
+            b.textContent = SKINS[id].name;
+            b.setAttribute('role', 'radio');
+            b.onclick = () => { p.skin = id; this.refreshMenu(); this.previewChanged(); };
+            skins.appendChild(b);
+        }
+        const wheels = $('wheel-tabs');
+        for (const id of WHEEL_IDS) {
+            const b = document.createElement('button');
+            b.className = 'wheel-btn'; b.dataset.id = id;
+            b.innerHTML = `${ICONS['wheel_' + id] ?? ''}<span>${WHEELS[id].name}</span>`;
+            b.setAttribute('role', 'radio');
+            b.onclick = () => { p.wheels = id; this.refreshMenu(); this.previewChanged(); };
+            wheels.appendChild(b);
+        }
+        for (const id of CHARACTER_IDS) $('p2-character').add(new Option(CHARACTERS[id].name, id));
+        $('p2-character').value = p.p2Character;
+        $('p2-character').onchange = e => { p.p2Character = e.target.value; this.save.write(); };
         COLORS.forEach((col, i) => {
             const b = document.createElement('button');
             b.className = 'swatch';
             b.style.setProperty('--c', hex(col));
             b.setAttribute('role', 'radio');
             b.setAttribute('aria-label', `Couleur ${i + 1}`);
-            b.onclick = () => { p.color = i; this.refreshMenu(); this.handlers.previewChanged?.(p.vehicle, COLORS[i]); };
+            b.onclick = () => { p.color = i; this.refreshMenu(); this.previewChanged(); };
             $('colorPicker').appendChild(b);
             $('p2-color').add(new Option(`Couleur ${i + 1}`, i));
         });
         $('p2-color').value = 2;
 
         $('lapCount').value = String(p.laps);
-        $('botCount').value = String(p.bots);
+        $('racerCount').value = String(p.racers);
         $('difficulty').value = p.difficulty;
         $('lapCount').onchange = e => { p.laps = +e.target.value; this.refreshMenu(); };
-        $('botCount').onchange = e => { p.bots = +e.target.value; this.save.write(); };
+        $('racerCount').onchange = e => { p.racers = +e.target.value; this.refreshMenu(); };
         $('difficulty').onchange = e => { p.difficulty = e.target.value; this.save.write(); };
 
         $('start-btn').onclick = () => this.handlers.start?.(this.collectConfig());
@@ -203,6 +236,35 @@ export class UI {
         this.refreshMenu();
     }
 
+    previewChanged() {
+        const p = this.prefs;
+        this.handlers.previewChanged?.(p.vehicle, COLORS[p.color], { skin: p.skin, wheels: p.wheels });
+    }
+
+    /** La vitrine 3D fournit les portraits : on (re)construit la grille des pilotes. */
+    setPortraitProvider(fn) {
+        this.portrait = fn;
+        this.buildPilotGrid();
+        this.refreshMenu();
+    }
+
+    buildPilotGrid() {
+        const p = this.prefs, grid = $('pilot-grid');
+        grid.innerHTML = '';
+        for (const id of CHARACTER_IDS) {
+            const ch = CHARACTERS[id];
+            const b = document.createElement('button');
+            b.className = 'pilot-btn'; b.dataset.id = id;
+            b.style.setProperty('--c', hex(ch.color));
+            b.setAttribute('role', 'radio');
+            b.setAttribute('aria-label', `${ch.name}, ${ch.title}`);
+            const src = this.portrait(id, id === p.character ? p.skin : 'classique', 160);
+            b.innerHTML = `${src ? `<img src="${src}" alt="">` : '<span class="thumb-ph"></span>'}<span class="pname">${ch.name}</span>`;
+            b.onclick = () => { p.character = id; if (p.p2Character === id) { p.p2Character = CHARACTER_IDS.find(x => x !== id); $('p2-character').value = p.p2Character; } this.refreshMenu(); };
+            grid.appendChild(b);
+        }
+    }
+
     /** Fiches des 10 objets, avec leur icône et leur effet. */
     buildItemsCard() {
         $('items-grid').innerHTML = ITEM_IDS.map(id => `<div class="item-card"><div class="item-ico">${ICONS[id]}</div><div><strong>${ITEMS[id].name}</strong><small>${ITEMS[id].desc}</small></div></div>`).join('');
@@ -220,7 +282,7 @@ export class UI {
         const list = Object.keys(VEHICLES).filter(id => this.save.isVehicleUnlocked(id));
         p.vehicle = list[(list.indexOf(p.vehicle) + dir + list.length) % list.length];
         this.refreshMenu();
-        this.handlers.previewChanged?.(p.vehicle, COLORS[p.color]);
+        this.previewChanged();
     }
 
     rebuildGrids() {
@@ -267,7 +329,7 @@ export class UI {
             b.setAttribute('role', 'radio');
             const img = this.thumbs[id] ? `<img class="thumb" src="${this.thumbs[id]}" alt="">` : `<span class="thumb-ph"></span>`;
             b.innerHTML = `${img}<span class="vname">${v.name}</span>${unlocked ? '' : `<span class="lock-tag">🔒 ${v.unlock} pts</span>`}`;
-            b.onclick = () => { p.vehicle = id; this.refreshMenu(); this.handlers.previewChanged?.(id, COLORS[p.color]); };
+            b.onclick = () => { p.vehicle = id; this.refreshMenu(); this.previewChanged(); };
             vg.appendChild(b);
             if (unlocked) sel2.add(new Option(v.name, id));
         }
@@ -287,6 +349,30 @@ export class UI {
         check($('biome-grid').querySelectorAll('.biome-btn'), el => el.dataset.id === p.biome);
         check($('vehicle-grid').querySelectorAll('.vehicle-btn'), el => el.dataset.id === p.vehicle);
         check($('colorPicker').querySelectorAll('.swatch'), el => [...el.parentNode.children].indexOf(el) === p.color);
+        check($('skin-tabs').querySelectorAll('.chip'), el => el.dataset.id === p.skin);
+        check($('wheel-tabs').querySelectorAll('.wheel-btn'), el => el.dataset.id === p.wheels);
+        check($('pilot-grid').querySelectorAll('.pilot-btn'), el => el.dataset.id === p.character);
+        setText($('wheel-desc'), WHEELS[p.wheels].desc);
+
+        // Fiche du pilote : son portrait 3D avec l'apparence choisie, son talent et ses bonus
+        const ch = CHARACTERS[p.character];
+        const portrait = this.portrait(p.character, p.skin, 320);
+        if (portrait && $('pilot-portrait').getAttribute('src') !== portrait) {
+            $('pilot-portrait').src = portrait;
+            const el = $('pilot-portrait'); el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+            const active = $('pilot-grid').querySelector(`[data-id="${p.character}"] img`);
+            if (active) active.src = this.portrait(p.character, p.skin, 160);
+            $('pilot-grid').querySelectorAll('.pilot-btn').forEach(b => {
+                if (b.dataset.id !== p.character) { const img = b.querySelector('img'); const src = this.portrait(b.dataset.id, 'classique', 160); if (img && img.getAttribute('src') !== src) img.src = src; }
+            });
+        }
+        $('pilot-show-wrap')?.style.setProperty('--c', hex(ch.color));
+        document.querySelector('.pilot-show')?.style.setProperty('--c', hex(ch.color));
+        setText($('pilot-name'), ch.name);
+        setText($('pilot-title'), ch.title);
+        $('pilot-perk').innerHTML = `<b>${ch.perkName}</b> · ${ch.perkDesc}`;
+        const NAMES = { speed: 'Vitesse', accel: 'Accél.', handling: 'Maniabilité', offroad: 'Hors-piste', drift: 'Drift' };
+        $('pilot-mods').innerHTML = Object.entries(ch.stats).map(([k, d]) => `<span class="${d > 0 ? 'up' : 'down'}">${NAMES[k]} ${d > 0 ? '+' : '−'}${Math.abs(d)}</span>`).join('');
 
         const isCup = p.mode === 'champ', isTT = p.mode === 'tt', isDuel = p.mode === 'duel';
         setText($('mode-desc'), MODES[p.mode].desc);
@@ -299,6 +385,7 @@ export class UI {
         $('diff-field').hidden = isTT;
         $('p2-panel').hidden = !isDuel;
         setText($('player-label'), isDuel ? '· Joueur 1' : '');
+        setText($('pilot-label'), isDuel ? '· Joueur 1' : '');
         setText($('points-display'), `⭐ ${this.save.points()} pt${this.save.points() > 1 ? 's' : ''}`);
 
         const nameEl = $('car-name');
@@ -316,9 +403,15 @@ export class UI {
             bars.innerHTML = STATS.map(([k, name]) =>
                 `<div class="bar-row"><div class="bar-label"><span>${name}</span><small data-stat="${k}"></small></div><div class="bar"><div class="bar-fill" data-fill="${k}"></div></div></div>`).join('');
         }
+        // Stats réelles : véhicule + pilote + roues (l'écart avec le véhicule seul est indiqué)
+        const eff = effectiveStats(p.vehicle, p.character, p.wheels);
         for (const [k] of STATS) {
-            bars.querySelector(`[data-fill="${k}"]`).style.width = `${s[k]}%`;
-            setText(bars.querySelector(`[data-stat="${k}"]`), String(s[k]));
+            bars.querySelector(`[data-fill="${k}"]`).style.width = `${eff[k]}%`;
+            const d = eff[k] - s[k];
+            const el = bars.querySelector(`[data-stat="${k}"]`);
+            const txt = d ? `${eff[k]} (${d > 0 ? '+' : '−'}${Math.abs(d)})` : String(eff[k]);
+            setText(el, txt);
+            el.className = d > 0 ? 'up' : d < 0 ? 'down' : '';
         }
 
         const laps = def.closed ? p.laps : 1;
@@ -340,11 +433,14 @@ export class UI {
 
     collectConfig() {
         const p = this.prefs;
-        const me = { vehicle: p.vehicle, color: COLORS[p.color], name: p.mode === 'duel' ? 'Joueur 1' : 'Toi' };
-        const cfg = { mode: p.mode, track: p.track, biome: p.biome, laps: p.laps, bots: p.bots, difficulty: p.difficulty, players: [me] };
-        if (p.mode === 'tt') cfg.bots = 0;
-        if (p.mode === 'champ') cfg.bots = 5;
-        if (p.mode === 'duel') cfg.players.push({ vehicle: $('p2-vehicle').value, color: COLORS[+$('p2-color').value], name: 'Joueur 2' });
+        // Chaque joueur porte le nom de son pilote ; les adversaires sont les autres personnages
+        const me = { vehicle: p.vehicle, color: COLORS[p.color], name: CHARACTERS[p.character].name, character: p.character, skin: p.skin, wheels: p.wheels };
+        const cfg = { mode: p.mode, track: p.track, biome: p.biome, laps: p.laps, racers: p.racers, difficulty: p.difficulty, players: [me] };
+        if (p.mode === 'champ') cfg.racers = MAX_RACERS;
+        if (p.mode === 'duel') {
+            const id = $('p2-character').value;
+            cfg.players.push({ vehicle: $('p2-vehicle').value, color: COLORS[+$('p2-color').value], name: CHARACTERS[id].name, character: id, skin: 'classique', wheels: 'route' });
+        }
         return cfg;
     }
 
@@ -453,11 +549,14 @@ export class UI {
     }
 
     // ---------- Cinématiques ----------
-    showIntro({ track, biome, laps, mode }) {
+    showIntro({ track, biome, laps, mode, racers, portrait, pilot }) {
         const modeName = MODES[mode]?.name ?? '';
-        setText($('intro-kicker'), `${modeName} · ${laps > 1 ? `${laps} tours` : '1 course'}`);
+        setText($('intro-kicker'), `${modeName} · ${laps > 1 ? `${laps} tours` : '1 course'}${racers > 1 ? ` · ${racers} pilotes` : ''}`);
         setText($('intro-track'), track);
-        setText($('intro-biome'), `Biome ${biome}`);
+        setText($('intro-biome'), `Biome ${biome}${pilot ? ` · au volant : ${pilot}` : ''}`);
+        const img = $('intro-portrait');
+        img.hidden = !portrait;
+        if (portrait) img.src = portrait;
         const el = $('intro');
         el.hidden = false;
         el.classList.remove('out');
@@ -509,12 +608,13 @@ export class UI {
         el.innerHTML = `
             <div class="speed-lines" data-f="lines"></div>
             <div class="hud-tl">
-                ${count > 1 ? `<div class="hud-name">${car.name}</div>` : ''}
+                <div class="hud-me">${car.portrait ? `<img src="${car.portrait}" alt="">` : ''}<div><b>${car.name}</b><small>${CHARACTERS[car.character]?.perkName ?? ''}</small></div></div>
                 ${showPos ? `<div class="hud-box hud-pos" data-f="pos"></div>` : ''}
                 ${sim.track.closed ? `<div class="hud-box"><small>Tour</small><span data-f="lap"></span></div>` : `<div class="hud-box"><small>Parcours</small><span data-f="progress"></span></div>`}
                 <div class="hud-box"><small>Temps</small><span data-f="time"></span></div>
                 ${laps > 1 ? `<div class="hud-box"><small>Meilleur tour</small><span data-f="best"></span></div>` : ''}
                 <div class="hud-box"><small>Record</small><span data-f="record"></span></div>
+                ${showPos && count === 1 ? '<ol class="standings" data-f="standings"></ol>' : ''}
             </div>
             <div class="hud-center"><div data-f="center"></div><div data-f="toasts"></div></div>
             <div class="drift-wrap" data-f="driftWrap"><div class="drift-bar" data-f="drift"></div></div>
@@ -576,6 +676,14 @@ export class UI {
                 }
             }
             if (f.lap) setText(f.lap, `${Math.min(sim.laps, car.lapsDone + 1)} / ${sim.laps}`);
+            // Classement en direct, avec les portraits des pilotes
+            if (f.standings && this.frameCount % 8 === 0) {
+                const key = sim.order.map(c => c.name).join();
+                if (key !== hud.standKey) {
+                    hud.standKey = key;
+                    f.standings.innerHTML = sim.order.map((c, i) => `<li class="${c === car ? 'me' : ''}" style="--c:${hex(c.color)}"><i>${i + 1}</i>${c.portrait ? `<img src="${c.portrait}" alt="">` : ''}<span>${c.name}</span></li>`).join('');
+                }
+            }
             if (f.progress) setText(f.progress, `${Math.max(0, Math.min(100, Math.round(100 * car.maxDist / sim.totalLen)))} %`);
 
             f.driftWrap.classList.toggle('on', v.drifting);
@@ -629,12 +737,14 @@ export class UI {
         }, 55);
     }
 
-    toast(index, text, kind = '') {
+    /** Message en course ; `avatar` : portrait du pilote concerné (le même que partout ailleurs). */
+    toast(index, text, kind = '', avatar = null) {
         const hud = this.huds[index];
         if (!hud) return;
         const t = document.createElement('div');
-        t.className = `toast-hud ${kind}`;
-        t.textContent = text;
+        t.className = `toast-hud ${kind}${avatar ? ' with-avatar' : ''}`;
+        if (avatar) { const img = document.createElement('img'); img.src = avatar; img.alt = ''; t.appendChild(img); }
+        t.appendChild(document.createTextNode(text));
         hud.f.toasts.replaceChildren(t);
         t.addEventListener('animationend', e => { if (e.animationName === 'toast-hud') t.remove(); });
     }
@@ -741,14 +851,14 @@ export class UI {
             title = `🏆 ${best.name} gagne !`;
         } else if (res.mode === 'tt') {
             title = me.newRecord ? '⏱️ Nouveau record !' : '⏱️ Chrono terminé';
-        } else if (cfg.bots === 0) {
+        } else if (!res.bots) {
             title = '🏁 Course terminée';
         } else if (me.position === 1) title = '🏆 Victoire !';
         else title = `${me.position}e sur ${res.ranking.length}`;
         setText($('results-title'), title);
         setText($('results-sub'), sub);
 
-        const rows = res.ranking.map((r, i) => `<tr class="${r.human ? 'me' : ''}" style="--i:${i}"><td>${i + 1}</td><td>${r.name}</td><td>${VEHICLES[r.vehicle].name}</td><td>${r.finished ? formatTime(r.time) : `à ${Math.round(r.gap)} m`}</td></tr>`).join('');
+        const rows = res.ranking.map((r, i) => `<tr class="${r.human ? 'me' : ''}" style="--i:${i}"><td class="rk">${i + 1}</td><td class="who">${r.portrait ? `<img src="${r.portrait}" alt="">` : ''}<span>${r.name}${r.human && res.players.length === 1 ? ' <em>(toi)</em>' : ''}</span></td><td>${VEHICLES[r.vehicle].name}</td><td>${r.finished ? formatTime(r.time) : `à ${Math.round(r.gap)} m`}</td></tr>`).join('');
         const table = res.ranking.length > 1 ? `<table class="res-table">${rows}</table>` : '';
 
         const stats = res.players.map(p => {
@@ -776,7 +886,7 @@ export class UI {
         }
         for (const u of res.unlocked) banner += `<div class="unlock">🔓 Débloqué : ${u}</div>`;
 
-        const cupHtml = cup ? cupTable(cup) : '';
+        const cupHtml = cup ? cupTable(cup, res) : '';
         $('results-body').innerHTML = `${banner}${cupHtml}<div class="res-grid"><div>${table}</div><div>${stats}</div></div>`;
         setText($('results-next'), cup ? (cup.done ? '🏆 Fin de la coupe' : '▶ Course suivante') : '🔁 Rejouer');
         $('results-overlay').hidden = false;
@@ -784,11 +894,13 @@ export class UI {
     }
 }
 
-function cupTable(cup) {
+function cupTable(cup, res) {
     const sorted = Object.entries(cup.standings).sort((a, b) => b[1] - a[1]);
-    const rows = sorted.map(([n, pts], i) => `<tr class="${n === 'Toi' ? 'me' : ''}" style="--i:${i}"><td>${i + 1}</td><td>${n}</td><td>${pts} pts</td></tr>`).join('');
+    const mine = new Set(res.ranking.filter(r => r.human).map(r => r.name));
+    const pic = new Map(res.ranking.map(r => [r.name, r.portrait]));
+    const rows = sorted.map(([n, pts], i) => `<tr class="${mine.has(n) ? 'me' : ''}" style="--i:${i}"><td class="rk">${i + 1}</td><td class="who">${pic.get(n) ? `<img src="${pic.get(n)}" alt="">` : ''}<span>${n}</span></td><td>${pts} pts</td></tr>`).join('');
     const head = cup.done
-        ? `<div class="medal-big">${sorted[0][0] === 'Toi' ? '🏆 Tu remportes la coupe !' : `La coupe revient à ${sorted[0][0]}`}</div>`
+        ? `<div class="medal-big">${mine.has(sorted[0][0]) ? '🏆 Tu remportes la coupe !' : `La coupe revient à ${sorted[0][0]}`}</div>`
         : `<p class="muted small">Coupe : course ${cup.index + 1} sur ${cup.tracks.length}</p>`;
     return `${head}<table class="res-table" style="margin-bottom:10px">${rows}</table>`;
 }

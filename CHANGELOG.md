@@ -1,6 +1,51 @@
 # Journal des nouveautés
 
-Chaque mise à jour de Kart Racing est notée ici, de la plus récente à la plus ancienne. Ce journal s'affiche aussi dans le jeu, bouton **Nouveautés** de l'écran titre.
+Chaque mise à jour de TurboKart (anciennement Kart Racing) est notée ici, de la plus récente à la plus ancienne. Ce journal s'affiche aussi dans le jeu, bouton **Nouveautés** de l'écran titre.
+
+## Alpha 1.5 — 13 novembre 2026
+
+Le jeu s'appelle désormais **TurboKart**.
+
+### Pilotes
+- **10 pilotes** avec leur propre modèle 3D : Bob le mécano, Lina la pilote de rallye, Volt le robot, Mamie Rosa, Kiko le singe, Frimas le yéti, Rex le dinosaure, Nova l'astronaute, Zoé l'inventrice et Shin le ninja.
+- Chaque pilote change les stats du véhicule et a un **talent** : Bob bouscule fort dans les chocs, Lina va plus vite hors-piste, Volt garde ses boosts plus longtemps, Mamie Rosa charge ses drifts plus vite, Kiko tire de meilleurs objets, Frimas ne glisse presque pas sur la glace, Rex sort plus vite des tête-à-queue, Nova saute plus haut, Zoé fait durer ses objets et Shin esquive un objet sur quatre.
+- **3 apparences** par pilote : Classique, Nuit et **Or massif**. Elle est la même partout : dans la voiture, dans le menu, dans le classement en course, dans les messages et dans les résultats, car tout est rendu depuis le même modèle 3D. L'or massif dore aussi la carrosserie.
+- Les pilotes sont assis au volant de leur voiture en course, et les vitres laissent les voir.
+- Chaque adversaire porte le nom d'un des 10 pilotes, avec sa voiture et sa couleur fétiches.
+
+### Courses
+- **Entre 4 et 8 pilotes** par course, au choix (la coupe se court à 8). Le contre-la-montre reste en solo.
+- **Le jeu va moins vite** : vitesses de pointe abaissées d'environ 18 % (la Formule 1 plafonne vers 240 km/h).
+- **3 types de roues** : Route (d'origine), Slicks (plus rapides sur le bitume, perdus hors-piste) et Tout-terrain (crampons, à l'aise hors-piste et sur la glace). Elles changent aussi l'allure des pneus et des jantes.
+- Les barres de stats du menu montrent la valeur réelle : véhicule, pilote et roues ensemble.
+
+### Circuits et biomes
+- **5 nouveaux circuits** : Lagon Turquoise, Néon City, Col des Aigles, Cratère Ardent et Descente Folle (un sprint qui dévale 100 m de dénivelé).
+- **4 nouveaux biomes** : **Montagne**, **Volcan**, **Plage** et **Ville de nuit**.
+- En **montagne, la route monte et descend** : la pente freine dans les montées et pousse dans les descentes, les voitures se cabrent et piquent du nez, entre falaises et vallées. Sapins, chalets fumants, téléphérique, sommets enneigés et aigles.
+- **Volcan** : lac et coulées de lave animées, fissures incandescentes dans le sol, volcan fumant, orgues basaltiques, braises et cendres.
+- **Plage** : une île de sable dans un lagon aux vagues animées, palmiers, parasols, phare au faisceau tournant, voiliers et mouettes.
+- **Ville de nuit** : gratte-ciel aux fenêtres allumées, enseignes au néon, réverbères qui éclairent la route, arches lumineuses, ciel étoilé et lune.
+
+### Décor plus beau et plus réaliste
+- Textures refaites : asphalte avec gravillons, rapiéçages, fissures et trajectoire gommée ; herbe, sable et neige plus détaillés.
+- Bordures en relief, glissières avec leurs poteaux, panneaux publicitaires encadrés.
+- **Obstacles redessinés** pour chaque biome : rochers bosselés, rochers moussus, grès en strates, cristaux de glace, rochers enneigés, orgues de basalte, coraux et barils.
+- **Spectateurs** refaits : de vrais petits personnages avec tête, bras levés, casquettes et drapeaux, qui sautent quand ça chauffe.
+- Nuages plus doux, palmiers plus détaillés.
+
+### Boîtes mystère et flaques
+- **Hitbox des boîtes mystère** corrigée : elle a la taille du cube affiché et tient compte de tout le trajet de la voiture, même à pleine vitesse. Une boîte touchée se casse toujours, même si tu as déjà un objet (sans t'en donner un deuxième).
+- Nouveau cube « ? » irisé avec un halo au sol.
+- **Flaques d'eau** redessinées : surface brillante, bord mouillé et ronds dans l'eau. La flaque d'huile lancée est noire et irisée.
+- **Une flaque ne fait glisser qu'une fois** : tant que tu restes dedans, tu ne repars plus en tête-à-queue. Il faut en sortir pour qu'elle compte à nouveau.
+
+### Interface
+- Nouveau nom **TurboKart** et nouvelles polices : Russo One pour les titres et les chiffres de course, Exo 2 pour le texte (Outfit prend le relais hors ligne).
+- Le logo Turbonix a quitté le haut des écrans : il n'apparaît plus qu'en bas, avec « 2026 Turbonix Entertainment ».
+- **Textes de course** retravaillés : position, chronos, compteur et messages plus lisibles et plus dynamiques.
+- En course : ton portrait et ton talent en haut à gauche, et un **classement en direct** avec le portrait de chaque pilote (sur les grands écrans).
+- Les messages « Touché par… », « Bien visé… » et « Foudroyé par… » montrent le portrait du pilote concerné, comme les résultats et le classement de la coupe.
 
 ## Alpha 1.4 — 7 novembre 2026
 

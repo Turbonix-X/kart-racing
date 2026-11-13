@@ -1,8 +1,9 @@
 // Tests de la logique pure (aucun rendu). Ouvrir tests/tests.html via le serveur local.
-import { VEHICLES, getSpec, FIXED_DT, MS_TO_KMH } from '../src/config.js';
+import { VEHICLES, getSpec, FIXED_DT, MS_TO_KMH, CHARACTERS, CHARACTER_IDS, WHEELS } from '../src/config.js';
 import { createVehicle, stepVehicle } from '../src/physics.js';
 import { getTrack, TRACK_ORDER } from '../src/tracks.js';
-import { RaceSim, createCar, gridSlot, ITEM_IDS } from '../src/sim.js';
+import { RaceSim, createCar, gridSlot, ITEM_IDS, buildRoster } from '../src/sim.js';
+import { Elevation } from '../src/terrain.js';
 import { BIOMES } from '../src/biomes.js';
 import { Save, medalForTime, medalForPosition, computeScore, formatTime } from '../src/storage.js';
 
@@ -317,7 +318,8 @@ test('37. Boîte bonus : ramassage, turbo, bouclier, flaque, réapparition', () 
     const n = sim.oils.length;
     sim.step(FIXED_DT, [INPUT({ useItem: true })]);
     assert(sim.oils.length === n + 1, 'flaque');
-    car.item = 'shield';      // garde un bonus : ne reprend pas la boîte en restant dessus
+    // On s'éloigne : la boîte réapparaît après quelques secondes
+    car.v.x += 40; track.locate(car.v.x, car.v.z, -1, car.nav); car.lastS = car.nav.s; car.px = car.v.x; car.pz = car.v.z;
     for (let i = 0; i < 60 * 8; i++) sim.step(FIXED_DT, [INPUT()]);
     assert(spot.timer <= 0, 'la boîte doit revenir');
 });
@@ -446,7 +448,7 @@ test('Biomes : la glace glisse plus, le sable freine plus', () => {
     const p = slide('plaine'), g = slide('glace'), d = slide('desert');
     assert(g.slip > p.slip * 1.2, `glisse plaine ${p.slip.toFixed(1)} / glace ${g.slip.toFixed(1)}`);
     assert(d.off < p.off * 0.9, `hors-piste plaine ${p.off.toFixed(1)} / désert ${d.off.toFixed(1)}`);
-    assert(Object.keys(BIOMES).length === 4, 'quatre biomes');
+    assert(Object.keys(BIOMES).length === 8, 'huit biomes');
 });
 for (const biome of Object.keys(BIOMES)) {
     test(`IA : course complète avec objets en biome ${biome}`, () => {
@@ -485,10 +487,111 @@ test('38. Médailles et déblocages', () => {
     assert(!s.isVehicleUnlocked('kart') && !s.isTrackUnlocked('pins'), 'bloqués au départ');
     const u = s.awardMedal('ovale', 'gold');
     assert(s.isVehicleUnlocked('kart') && s.isTrackUnlocked('pins'), 'débloqués');
-    assert(u.length === 2, `annonces ${u}`);
+    assert(u.length === 3 && u.includes('Cratère Ardent'), `annonces ${u}`);
     s.awardMedal('ovale', 'bronze');
     assert(s.data.medals.ovale === 'gold', 'une médaille ne doit jamais baisser');
 });
+// ---------- Alpha 1.5 ----------
+test('Alpha 1.5 : le jeu va moins vite (F1 sous 250 km/h, aucune au-dessus)', () => {
+    const top = Math.max(...Object.keys(VEHICLES).map(t => getSpec(t).topSpeed)) * MS_TO_KMH;
+    assert(top < 260, `pointe ${top.toFixed(0)} km/h`);
+    return `pointe max ${top.toFixed(0)} km/h`;
+});
+test('Boîte mystère : détectée même si la voiture la traverse entre deux images', () => {
+    const { car, sim, track } = humanSim('droite', 'f1');
+    const spot = sim.pickups[0];
+    // Avant le pas : 4 m derrière la boîte ; après le pas (vitesse énorme) : 4 m devant
+    const p = track.locate(spot.x, spot.z, -1, {});
+    car.v.x = spot.x - p.tx * 4; car.v.z = spot.z - p.tz * 4;
+    car.v.heading = Math.atan2(p.tx, p.tz);
+    car.v.vx = p.tx * 480; car.v.vz = p.tz * 480;
+    track.locate(car.v.x, car.v.z, -1, car.nav); car.lastS = car.nav.s;
+    sim.step(FIXED_DT, [INPUT({ throttle: 1 })]);
+    assert(car.item, 'la boîte traversée doit compter');
+});
+test('Boîte mystère : elle se casse même quand on a déjà un objet (sans en donner un autre)', () => {
+    const { car, sim, track } = humanSim('ovale', 'sport');
+    const spot = sim.pickups[0];
+    car.item = 'bomb';
+    car.v.x = spot.x; car.v.z = spot.z; track.locate(car.v.x, car.v.z, -1, car.nav); car.lastS = car.nav.s;
+    sim.step(FIXED_DT, [INPUT()]);
+    assert(spot.timer > 0 && car.item === 'bomb', 'casse la boîte, garde la bombe');
+});
+test('Flaque d\'eau : on glisse une seule fois, même en restant dedans', () => {
+    const { car, sim, track } = humanSim('droite', 'sport');
+    for (let i = 0; i < 180; i++) sim.step(FIXED_DT, [INPUT({ throttle: 1 })]);
+    const v = car.v;
+    sim.oils.push({ x: v.x + Math.sin(v.heading) * 4, z: v.z + Math.cos(v.heading) * 4, r: 30, age: -1, owner: null, water: true });
+    let spins = 0, was = false;
+    for (let i = 0; i < 60 * 5; i++) {
+        sim.step(FIXED_DT, [INPUT({ throttle: 1 })]);
+        const now = v.spin > 0;
+        if (now && !was) spins++;
+        was = now;
+    }
+    assert(spins === 1, `${spins} glissades dans la même flaque`);
+});
+test('Montagne : la piste monte et descend, la voiture suit le relief', () => {
+    const t = getTrack('col'), car = createCar(t, 'sport', { slot: 0, difficulty: 'hard' });
+    const sim = new RaceSim({ track: t, laps: 1, cars: [car], biome: 'montagne' });
+    const E = sim.elev;
+    assert(!E.flat && E.max - E.min > 20, `dénivelé ${(E.max - E.min).toFixed(0)} m`);
+    let maxSlope = 0; for (const s of E.slope) maxSlope = Math.max(maxSlope, Math.abs(s));
+    assert(maxSlope < 0.2, `pente max ${(maxSlope * 100).toFixed(0)} %`);
+    let lo = Infinity, hi = -Infinity;
+    for (let i = 0; i < 60 * 40 && !car.finished; i++) { sim.step(FIXED_DT, []); lo = Math.min(lo, car.g); hi = Math.max(hi, car.g); }
+    assert(hi - lo > 15, `la voiture doit monter et descendre (${(hi - lo).toFixed(0)} m)`);
+    assert(new Elevation(t, BIOMES.plaine).flat, 'les autres biomes restent plats');
+    return `dénivelé ${(E.max - E.min).toFixed(0)} m, pente max ${(maxSlope * 100).toFixed(0)} %`;
+});
+test('Montagne : la montée freine, la descente accélère', () => {
+    const run = slope => { const v = createVehicle('sport', 0, 0, 0); v.slope = slope; for (let i = 0; i < 60 * 12; i++) stepVehicle(v, INPUT({ throttle: 1 }), FIXED_DT); return v.speed; };
+    const up = run(0.15), flat = run(0), down = run(-0.15);
+    assert(up < flat && down > flat, `montée ${up.toFixed(1)} / plat ${flat.toFixed(1)} / descente ${down.toFixed(1)}`);
+});
+test('Pilotes : 10 personnages, chacun change les stats et a son talent', () => {
+    assert(CHARACTER_IDS.length === 10, 'dix pilotes');
+    const perks = new Set(CHARACTER_IDS.map(id => CHARACTERS[id].perk));
+    assert(perks.size === 10, 'dix talents différents');
+    for (const id of CHARACTER_IDS) {
+        const a = getSpec('sport'), b = getSpec('sport', id);
+        assert(['topSpeed', 'accel', 'yaw', 'offroadTop', 'chargeRate'].some(k => Math.abs(a[k] - b[k]) > 1e-6), `${id} ne change rien`);
+    }
+    assert(getSpec('sport', 'bob').mass > getSpec('sport', 'lina').mass, 'Bob est lourd');
+    assert(getSpec('sport', 'lina').offroadTop > getSpec('sport').offroadTop, 'Lina va plus vite hors-piste');
+});
+test('Pilotes : chaque adversaire porte le nom d\'un des 10 personnages, entre 4 et 8 pilotes', () => {
+    for (const racers of [2, 4, 6, 8, 12]) {
+        const cfg = { mode: 'race', racers, players: [{ character: 'bob' }] };
+        const bots = buildRoster(cfg);
+        const total = bots.length + 1;
+        assert(total >= 4 && total <= 8, `${total} pilotes pour ${racers} demandés`);
+        const names = bots.map(b => b.name);
+        assert(new Set(names).size === names.length, 'deux adversaires du même nom');
+        assert(bots.every(b => CHARACTERS[b.character]?.name === b.name && b.character !== 'bob'), 'nom inconnu ou pilote du joueur');
+    }
+    assert(buildRoster({ mode: 'tt', racers: 8, players: [{ character: 'zoe' }] }).length === 0, 'chrono : seul');
+});
+test('Roues : 3 types, les crampons tiennent mieux sur la glace', () => {
+    assert(Object.keys(WHEELS).length === 3, 'trois roues');
+    const grip = wheels => {
+        const t = getTrack('ovale'), car = createCar(t, 'sport', { human: true, playerIndex: 0, wheels });
+        new RaceSim({ track: t, laps: 1, cars: [car], biome: 'glace' });
+        return car.v.gripMult;
+    };
+    assert(grip('crampons') > grip('route'), 'crampons sur la glace');
+    assert(getSpec('sport', null, 'slick').topSpeed > getSpec('sport', null, 'crampons').topSpeed, 'slicks plus rapides');
+});
+test('Talents : le bouclier de Zoé dure plus longtemps, le saut de Nova est plus haut', () => {
+    const t = getTrack('droite');
+    const make = character => { const car = createCar(t, 'sport', { human: true, playerIndex: 0, character }); const sim = new RaceSim({ track: t, laps: 1, cars: [car] }); return { car, sim }; };
+    const a = make('zoe'), b = make('bob');
+    a.car.item = 'shield'; b.car.item = 'shield';
+    a.sim.step(FIXED_DT, [INPUT({ useItem: true })]); b.sim.step(FIXED_DT, [INPUT({ useItem: true })]);
+    assert(a.car.v.shield > b.car.v.shield, 'bouclier de Zoé');
+    assert(getSpec('sport', 'nova').hop > getSpec('sport', 'bob').hop, 'saut de Nova');
+});
+
 test('36. Score : plus rapide = meilleur score', () => {
     const st = { pads: 0, driftBoosts: 0, impacts: 0 };
     assert(computeScore(40, 80, st) > computeScore(60, 80, st), 'score');

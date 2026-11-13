@@ -1,6 +1,7 @@
 // Vitrine 3D du menu : un plateau lumineux qui tourne, le véhicule y atterrit à chaque choix.
 import * as THREE from 'three';
 import { buildVehicleModel } from './models.js';
+import { buildCharacterModel } from './characters3d.js';
 
 const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
@@ -70,10 +71,11 @@ export class Preview {
         this.camera.updateProjectionMatrix();
     }
 
-    /** Change de véhicule. Seul un changement de modèle rejoue l'atterrissage. */
-    show(type, color) {
-        if (this.model && this.type === type) {
-            this.model.bodyMat.color.setHex(color);
+    /** Change de véhicule. Seul un changement de modèle (ou de roues, d'apparence) rejoue l'atterrissage. */
+    show(type, color, { skin = 'classique', wheels = 'route' } = {}) {
+        const key = `${type}|${wheels}|${skin === 'or' ? 'or' : '-'}`;
+        if (this.model && this.key === key) {
+            if (skin !== 'or') this.model.bodyMat.color.setHex(color);
             this.flash = 1;
             return;
         }
@@ -82,8 +84,9 @@ export class Preview {
             this.model.disposeOwn();
         }
         this.type = type;
-        // Vitrine : la voiture seule, sans pilote
-        this.model = buildVehicleModel(type, color, { driver: false });
+        this.key = key;
+        // Vitrine : la voiture seule, sans pilote ; l'or massif dore aussi la carrosserie
+        this.model = buildVehicleModel(type, color, { driver: false, skin, wheels });
         this.pivot.add(this.model.root);
         this.landing = reduced ? 1 : 0;
     }
@@ -117,6 +120,45 @@ export class Preview {
         r.dispose();
         r.forceContextLoss?.();
         return out;
+    }
+
+    /**
+     * Portrait d'un pilote, rendu depuis son modèle 3D avec son apparence.
+     * Le même portrait sert partout (menu, course, fenêtres) : Bob en or massif l'est aussi dans les pop-ups.
+     */
+    portrait(id, skin = 'classique', size = 160) {
+        if (!id) return null;
+        this.portraits ??= new Map();
+        const key = `${id}|${skin}|${size}`;
+        if (this.portraits.has(key)) return this.portraits.get(key);
+        if (!this.pr) {
+            const r = this.pr = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+            r.setPixelRatio(1);
+            r.toneMapping = THREE.ACESFilmicToneMapping;
+            r.toneMappingExposure = 1.1;
+            this.prScene = new THREE.Scene();
+            this.prScene.environment = this.env.texture;
+            const key2 = new THREE.DirectionalLight(0xffffff, 2.2);
+            key2.position.set(2, 3, 4);
+            const rim = new THREE.DirectionalLight(0xff8c1a, 1.6);
+            rim.position.set(-3, 2, -2);
+            const fill = new THREE.DirectionalLight(0x22c55e, 0.8);
+            fill.position.set(3, 0, -2);
+            this.prScene.add(key2, rim, fill, new THREE.HemisphereLight(0xffffff, 0x404040, 0.9));
+            this.prCam = new THREE.PerspectiveCamera(24, 1, 0.1, 20);
+        }
+        this.pr.setSize(size, size);
+        const m = buildCharacterModel(id, skin);
+        m.root.rotation.y = -0.38;
+        this.prScene.add(m.root);
+        this.prCam.position.set(0.6, 0.92, 2.25);
+        this.prCam.lookAt(0, 0.6, 0);
+        this.pr.render(this.prScene, this.prCam);
+        const url = this.pr.domElement.toDataURL('image/png');
+        this.prScene.remove(m.root);
+        m.dispose();
+        this.portraits.set(key, url);
+        return url;
     }
 
     frame(dt) {

@@ -139,13 +139,14 @@ export class ItemFX {
         switch (e.type) {
             case 'explode': {
                 const shell = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), glow(0xff8c1a, 0.8));
-                shell.position.set(e.x, 1, e.z);
+                const gy = fx.h(e.x, e.z);
+                shell.position.set(e.x, gy + 1, e.z);
                 const ring = new THREE.Mesh(new THREE.TorusGeometry(1, 0.12, 8, 32).rotateX(Math.PI / 2), glow(0xffe08a, 0.7));
-                ring.position.set(e.x, 0.3, e.z);
+                ring.position.set(e.x, gy + 0.3, e.z);
                 this.scene.add(shell, ring);
                 const max = e.small ? 3 : 7;
                 this.flashes.push({ life: 0.6, max: 0.6, update: (k) => { const s = 1 + (1 - k) * max; shell.scale.setScalar(s); shell.material.opacity = k * 0.8; ring.scale.setScalar(s * 1.1); ring.material.opacity = k * 0.7; }, objects: [shell, ring] });
-                fx.sparks(e.x, 1, e.z, e.small ? 14 : 30);
+                fx.sparks(e.x, gy + 1, e.z, e.small ? 14 : 30);
                 for (let i = 0; i < (e.small ? 4 : 10); i++) fx.smoke(e.x + (Math.random() - 0.5) * 4, e.z + (Math.random() - 0.5) * 4, 0, 0, 0x555555, 0.9);
                 break;
             }
@@ -156,21 +157,21 @@ export class ItemFX {
                 const c = e.car, v = c.v;
                 if (e.item === 'turbo') {
                     const ring = new THREE.Mesh(new THREE.TorusGeometry(1, 0.15, 8, 28), glow(0xff8c1a, 0.9));
-                    ring.position.set(v.x - Math.sin(v.heading) * 2, 0.8, v.z - Math.cos(v.heading) * 2);
+                    ring.position.set(v.x - Math.sin(v.heading) * 2, (c.g ?? 0) + v.y + 0.8, v.z - Math.cos(v.heading) * 2);
                     ring.rotation.y = v.heading;
                     this.scene.add(ring);
                     this.flashes.push({ life: 0.45, max: 0.45, update: k => { ring.scale.setScalar(1 + (1 - k) * 3); ring.material.opacity = k; }, objects: [ring] });
                 } else if (e.item === 'spring') {
                     this.car(c).springTime = 0.6;
                 } else if (e.item === 'oil') {
-                    fx.burst(v.x - Math.sin(v.heading) * 4, 0.8, v.z - Math.cos(v.heading) * 4);
+                    fx.burst(v.x - Math.sin(v.heading) * 4, (c.g ?? 0) + 0.8, v.z - Math.cos(v.heading) * 4);
                 }
                 break;
             }
             case 'blocked': {
                 const p = this.car(e.car).shield;
                 if (p) { p.visible = true; p.scale.setScalar(1.6); }
-                this.fx.sparks(e.car.v.x, 1.2, e.car.v.z, 16);
+                this.fx.sparks(e.car.v.x, (e.car.g ?? 0) + 1.2, e.car.v.z, 16);
                 break;
             }
         }
@@ -179,12 +180,13 @@ export class ItemFX {
     /** Éclair qui tombe du ciel sur une voiture. */
     bolt(x, z) {
         const m = new THREE.Mesh(boltGeometry(40), new THREE.MeshBasicMaterial({ color: 0xbfe8ff, toneMapped: false, transparent: true }));
-        m.position.set(x, 0, z);
+        const gy = this.fx.h(x, z);
+        m.position.set(x, gy, z);
         const flash = new THREE.PointLight(0x9fd8ff, 60, 30);
-        flash.position.set(x, 6, z);
+        flash.position.set(x, gy + 6, z);
         this.scene.add(m, flash);
         this.flashes.push({ life: 0.35, max: 0.35, update: k => { m.material.opacity = k > 0.5 ? 1 : k * 2; flash.intensity = 60 * k; }, objects: [m, flash] });
-        this.fx.sparks(x, 0.8, z, 18);
+        this.fx.sparks(x, gy + 0.8, z, 18);
     }
 
     /** Appelé à chaque image : place et anime tout ce qui concerne les objets. */
@@ -201,17 +203,17 @@ export class ItemFX {
                 this.projectiles.set(p.id, m);
             }
             if (p.kind === 'missile') {
-                m.position.set(p.x, ROAD_Y + 0.8 + Math.sin(time * 20) * 0.05, p.z);
+                m.position.set(p.x, ROAD_Y + fx.h(p.x, p.z) + 0.8 + Math.sin(time * 20) * 0.05, p.z);
                 m.rotation.set(0, p.heading, time * 8);
                 m.userData.flame.scale.setScalar(0.8 + Math.random() * 0.5);
                 fx.flame(p.x - Math.sin(p.heading) * 1.4, 0.8, p.z - Math.cos(p.heading) * 1.4, -Math.sin(p.heading) * 6, -Math.cos(p.heading) * 6);
             } else if (p.kind === 'bomb') {
-                m.position.set(p.x, ROAD_Y + p.y, p.z);
+                m.position.set(p.x, ROAD_Y + fx.h(p.x, p.z) + p.y, p.z);
                 m.rotation.x += dt * 8;
                 const blink = p.life < 0.8 ? (Math.sin(time * 40) > 0 ? 1.6 : 0.6) : 1;
                 m.userData.spark.scale.setScalar(blink + Math.random() * 0.3);
             } else {
-                m.position.set(p.x, ROAD_Y, p.z);
+                m.position.set(p.x, ROAD_Y + fx.h(p.x, p.z), p.z);
                 m.rotation.y += dt * 9;
                 m.children.forEach((r, i) => { r.position.x = Math.sin(time * 5 + i) * 0.4; });
                 if (Math.random() < 0.6) fx.smoke(p.x + (Math.random() - 0.5) * 3, p.z + (Math.random() - 0.5) * 3, 0, 0, 0xcfc6b8, 0.7);
@@ -232,7 +234,7 @@ export class ItemFX {
                     a.shield.scale.setScalar(a.shield.scale.x + (target - a.shield.scale.x) * Math.min(1, dt * 10));
                     a.shield.userData.net.rotation.y += dt * 1.2;
                     a.shield.visible = v.shield > 1 || Math.sin(time * 30) > 0;   // clignote avant de disparaître
-                } else { this.disposeObject(a.shield); a.shield = null; fx.sparks(root.position.x, 1.2, root.position.z, 12); }
+                } else { this.disposeObject(a.shield); a.shield = null; fx.sparks(root.position.x, root.position.y + 1.2, root.position.z, 12); }
             }
 
             // Aimant sur le toit, rayon vers la cible
@@ -268,15 +270,15 @@ export class ItemFX {
             const targetScale = v.zap > 0 ? 0.62 : 1;
             a.scale = (a.scale ?? 1) + (targetScale - (a.scale ?? 1)) * Math.min(1, dt * 8);
             root.scale.setScalar(a.scale);
-            if (v.zap > 0 && Math.random() < 0.25) fx.sparks(root.position.x, 0.8, root.position.z, 2);
+            if (v.zap > 0 && Math.random() < 0.25) fx.sparks(root.position.x, root.position.y + 0.8, root.position.z, 2);
 
             // Ressort qui se détend sous la voiture
             if (a.springTime > 0) {
                 if (!a.spring) { a.spring = springModel(); this.scene.add(a.spring); }
                 a.springTime -= dt;
                 const k = 1 - a.springTime / 0.6;
-                a.spring.position.set(root.position.x, ROAD_Y, root.position.z);
-                a.spring.scale.set(1, Math.max(0.05, root.position.y - ROAD_Y + 0.3) * (0.6 + Math.sin(k * Math.PI * 6) * 0.1), 1);
+                a.spring.position.set(root.position.x, ROAD_Y + (car.g ?? 0), root.position.z);
+                a.spring.scale.set(1, Math.max(0.05, root.position.y - ROAD_Y - (car.g ?? 0) + 0.3) * (0.6 + Math.sin(k * Math.PI * 6) * 0.1), 1);
                 if (a.springTime <= 0) { this.disposeObject(a.spring); a.spring = null; }
             }
 

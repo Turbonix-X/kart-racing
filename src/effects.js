@@ -12,6 +12,8 @@ const MAX_MARK_QUADS = 2400;
 export class Effects {
     constructor(scene) {
         this.scene = scene;
+        /** Hauteur de la route sous un point : remplacée par le jeu en montagne. */
+        this.h = () => 0;
 
         // --- Particules ---
         this.mesh = new THREE.InstancedMesh(
@@ -58,7 +60,7 @@ export class Effects {
 
     smoke(x, z, vx, vz, color = 0xdddddd, size = 0.5) {
         const r = () => (Math.random() - 0.5);
-        this.emit(x + r(), 0.3, z + r(), vx * 0.15 + r() * 2, 1 + Math.random(), vz * 0.15 + r() * 2, size, 1.8, 0.7 + Math.random() * 0.5, color);
+        this.emit(x + r(), 0.3 + this.h(x, z), z + r(), vx * 0.15 + r() * 2, 1 + Math.random(), vz * 0.15 + r() * 2, size, 1.8, 0.7 + Math.random() * 0.5, color);
     }
     flame(x, y, z, vx, vz) {
         const r = () => (Math.random() - 0.5);
@@ -90,24 +92,24 @@ export class Effects {
         const colors = [0xffd60a, 0x9b6dff, 0xffffff, 0xff5a8a, 0x35e0a0];
         for (let i = 0; i < 90; i++) {
             const a = Math.random() * 6.28, s = 2 + Math.random() * 9;
-            this.emit(x + Math.cos(a) * 3, 2 + Math.random() * 5, z + Math.sin(a) * 3, Math.cos(a) * s, 7 + Math.random() * 10, Math.sin(a) * s, 0.13, 0, 1.6 + Math.random() * 1.4, colors[i % colors.length], 9);
+            this.emit(x + Math.cos(a) * 3, this.h(x, z) + 2 + Math.random() * 5, z + Math.sin(a) * 3, Math.cos(a) * s, 7 + Math.random() * 10, Math.sin(a) * s, 0.13, 0, 1.6 + Math.random() * 1.4, colors[i % colors.length], 9);
         }
     }
 
     /** Prolonge une trace de pneu ; `state` garde la dernière position de cette roue. */
     addMark(state, x, z, hx, hz, width = 0.32) {
         const px = -hz * width, pz = hx * width;
-        const lx = x + px, lz = z + pz, rx = x - px, rz = z - pz;
+        const lx = x + px, lz = z + pz, rx = x - px, rz = z - pz, y = MARK_Y + this.h(x, z);
         if (state.active && Math.hypot(x - state.x, z - state.z) < 8) {
             const o = this.markHead * 12, a = this.markPos;
-            a[o] = state.lx; a[o + 1] = MARK_Y; a[o + 2] = state.lz;
-            a[o + 3] = state.rx; a[o + 4] = MARK_Y; a[o + 5] = state.rz;
-            a[o + 6] = lx; a[o + 7] = MARK_Y; a[o + 8] = lz;
-            a[o + 9] = rx; a[o + 10] = MARK_Y; a[o + 11] = rz;
+            a[o] = state.lx; a[o + 1] = state.y; a[o + 2] = state.lz;
+            a[o + 3] = state.rx; a[o + 4] = state.y; a[o + 5] = state.rz;
+            a[o + 6] = lx; a[o + 7] = y; a[o + 8] = lz;
+            a[o + 9] = rx; a[o + 10] = y; a[o + 11] = rz;
             this.markHead = (this.markHead + 1) % MAX_MARK_QUADS;
             this.markDirty = true;
         }
-        state.active = true; state.x = x; state.z = z; state.lx = lx; state.lz = lz; state.rx = rx; state.rz = rz;
+        state.active = true; state.x = x; state.z = z; state.y = y; state.lx = lx; state.lz = lz; state.rx = rx; state.rz = rz;
     }
 
     update(dt) {

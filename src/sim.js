@@ -6,15 +6,19 @@
 import { createVehicle, stepVehicle, bounce, spinOut, giveBoost } from './physics.js';
 import { aiControl, createBrain } from './ai.js';
 import { BIOMES } from './biomes.js';
+import { Elevation } from './terrain.js';
+import { CHARACTERS, CHARACTER_IDS, MIN_RACERS, MAX_RACERS } from './config.js';
 
 const MAX_LOGICAL_JUMP = 40;
 const PICKUP_RESPAWN = 7;
+export const PICKUP_HALF = 1.15;     // demi-taille du cube affiché
+const PICKUP_HEIGHT = 3.4;
 
 /** Les 10 objets des boîtes mystère. `front` / `back` : chances selon le classement. */
 export const ITEMS = {
     turbo:   { name: 'Turbo',          desc: 'Une grosse poussée vers l\'avant',            front: 1, back: 5 },
     shield:  { name: 'Bouclier',       desc: '6 s protégé de tout, et tu bouscules',         front: 4, back: 2 },
-    oil:     { name: 'Flaque d\'huile', desc: 'Posée derrière toi : fait déraper',           front: 5, back: 1 },
+    oil:     { name: 'Flaque d\'huile', desc: 'Posée derrière toi : fait déraper une fois',   front: 5, back: 1 },
     missile: { name: 'Missile',        desc: 'Fonce sur la voiture juste devant',            front: 1, back: 4 },
     bomb:    { name: 'Bombe',          desc: 'Lancée devant, elle explose en zone',          front: 3, back: 3 },
     zap:     { name: 'Éclair',         desc: 'Ralentit tous ceux qui sont devant toi',       front: 0, back: 3 },
@@ -27,17 +31,36 @@ export const ITEM_IDS = Object.keys(ITEMS);
 
 export function createCar(track, type, opts = {}) {
     const start = gridSlot(track, opts.slot ?? 0);
-    const v = createVehicle(type, start.x, start.z, start.heading);
+    const v = createVehicle(type, start.x, start.z, start.heading, { character: opts.character ?? null, wheels: opts.wheels ?? 'route' });
     const brain = opts.human ? null : createBrain(opts.slot ?? 0, opts.difficulty ?? 'normal');
     if (brain) v.perf = brain.perf;
     return {
         v, name: opts.name ?? '?', color: opts.color ?? 0xffffff, human: !!opts.human, playerIndex: opts.playerIndex ?? -1,
+        character: opts.character ?? null, skin: opts.skin ?? 'classique', wheels: opts.wheels ?? 'route',
+        g: 0, puddles: new Set(), px: start.x, pz: start.z,
         brain,
         nav: { idx: -1, s: 0, d: 0, lat: 0, width: 10, limit: 20, tx: 0, tz: 1, px: 0, pz: 0, inCorridor: false, corridorGrace: 0, mismatch: 0 },
         dist: 0, maxDist: 0, lastS: 0, lapsDone: 0, lapStart: 0, lapTimes: [],
         finished: false, finishTime: 0, position: 1, wrongWay: false, wrongTimer: 0, offTrackTime: 0,
         item: null, stats: { topSpeed: 0, driftBoosts: 0, pads: 0, impacts: 0, hits: 0, items: 0 }, respawnS: 0,
     };
+}
+
+/**
+ * Liste des pilotes d'une course : les joueurs, puis des adversaires tirés parmi les autres personnages
+ * (chacun porte le nom de son personnage, sa voiture et sa couleur). Entre 4 et 8 pilotes ; le chrono se court seul.
+ */
+export function buildRoster(cfg, rng = Math.random) {
+    const total = cfg.mode === 'tt' ? cfg.players.length : Math.max(MIN_RACERS, Math.min(MAX_RACERS, cfg.racers ?? 6));
+    const taken = new Set(cfg.players.map(p => p.character));
+    const pool = CHARACTER_IDS.filter(id => !taken.has(id));
+    for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+    const bots = [];
+    for (let i = 0; i < Math.max(0, total - cfg.players.length); i++) {
+        const id = pool[i % pool.length], ch = CHARACTERS[id];
+        bots.push({ vehicle: ch.kart, name: ch.name, color: ch.color, character: id, skin: 'classique', wheels: 'route' });
+    }
+    return bots;
 }
 
 /** Place sur la grille de départ : deux colonnes derrière la ligne. */
@@ -60,12 +83,13 @@ export class RaceSim {
         this.cars = cars;
         this.mode = mode;
         this.biome = BIOMES[biome] ?? BIOMES.plaine;
+        this.elev = new Elevation(track, this.biome);
         this.time = 0;
         this.finished = false;
         this.events = [];
         // En contre-la-montre, seul le pilotage compte : pas de boîtes mystère
         this.pickups = mode === 'tt' ? [] : track.pickupSpots.map(p => ({ x: p.x, z: p.z, timer: 0 }));
-        this.oils = track.staticOil.map(o => ({ x: o.x, z: o.z, r: o.r, age: -1, owner: null }));
+        this.oils = track.staticOil.map(o => ({ x: o.x, z: o.z, r: o.r, age: -1, owner: null, water: true }));
         this.props = (track.coneSpots ?? []).map(c => ({ hx: c.x, hz: c.z, x: c.x, z: c.z, y: 0, vx: 0, vz: 0, vy: 0, rx: 0, rz: 0, timer: 0 }));
         this.projectiles = [];
         this.lapLen = track.closed ? track.length : track.raceLength;
@@ -73,7 +97,8 @@ export class RaceSim {
         this.autoInput = { throttle: 0, brake: 0, steer: 0, drift: false, hop: false, jump: false, useItem: false, respawn: false };
 
         for (const car of cars) {
-            car.v.gripMult = this.biome.grip;
+            // Crampons et pattes de yéti : la glace glisse beaucoup moins
+            car.v.gripMult = 1 - (1 - this.biome.grip) * (1 - Math.min(0.95, car.v.spec.iceGrip ?? 0));
             car.v.offMult = this.biome.offroad;
             track.locate(car.v.x, car.v.z, -1, car.nav);
             car.lastS = car.nav.s;
@@ -82,6 +107,7 @@ export class RaceSim {
             car.dist = track.closed ? track.deltaS(track.startS, car.nav.s) : car.nav.s - track.startS;
             car.maxDist = car.dist;
             car.lapStart = 0;
+            car.g = this.elev.at(car.nav);
         }
         this.updatePositions();
     }
@@ -120,12 +146,16 @@ export class RaceSim {
 
         if (inp.respawn && !car.finished) this.respawn(car);
         this.applyMagnet(car, dt);
+        car.px = v.x; car.pz = v.z;
+        // Pente sous les roues, mesurée dans le sens où regarde la voiture
+        v.slope = this.elev.flat ? 0 : this.elev.slopeAtS(nav.s) * (Math.sin(v.heading) * nav.tx + Math.cos(v.heading) * nav.tz);
         stepVehicle(v, inp, dt);
         if (v.driftBoostTier > 0) { car.stats.driftBoosts++; this.emit('driftBoost', car, { tier: v.driftBoostTier }); }
         if (v.jumped || v.hopped) this.emit(v.hopped ? 'hop' : 'jump', car);
-        if (v.landed > 6) this.emit('land', car, { power: v.landed });
 
         this.resolveBounds(car);
+        this.followGround(car);
+        if (v.landed > 6) this.emit('land', car, { power: v.landed });
         if (v.ghost <= 0) this.resolveObstacles(car);
 
         // Surface : même mesure que le bitume dessiné
@@ -140,6 +170,17 @@ export class RaceSim {
 
         this.updateRace(car, dt);
         if (v.speed > car.stats.topSpeed) car.stats.topSpeed = v.speed;
+    }
+
+    /** Relief : la voiture suit la route ; en l'air, elle garde sa hauteur réelle pendant que le sol défile. */
+    followGround(car) {
+        if (this.elev.flat) return;
+        const v = car.v, g = this.elev.at(car.nav), dG = g - car.g;
+        car.g = g;
+        if (v.y > 0 || v.vy > 0) {
+            v.y -= dG;
+            if (v.y <= 0) { v.landed = Math.max(v.landed, 0.01, -v.vy); v.y = 0; v.vy = 0; }
+        }
     }
 
     /** Murs : impossible de quitter la zone de course, quelle que soit la façon de s'y prendre. */
@@ -206,17 +247,27 @@ export class RaceSim {
         }
     }
 
+    /**
+     * Flaques (eau sur la piste, huile lancée) : on glisse en y entrant, une seule fois.
+     * Tant qu'on reste dedans, elle ne refait pas glisser ; il faut en sortir pour qu'elle recompte.
+     */
     checkOil(car) {
         const v = car.v;
-        if (v.y > 0.6) return;
         for (const o of this.oils) {
+            const dx = v.x - o.x, dz = v.z - o.z, inside = dx * dx + dz * dz < o.r * o.r;
+            if (!inside) { car.puddles.delete(o); continue; }
+            if (car.puddles.has(o)) continue;
+            if (v.y > 0.6) continue;                        // saut synchro : on passe au-dessus
             if (o.owner === car && o.age < 1.5) continue;
-            const dx = v.x - o.x, dz = v.z - o.z;
-            if (dx * dx + dz * dz < o.r * o.r && Math.abs(v.speed) > 6) {
-                if (spinOut(v)) this.emit('spin', car);
-            }
+            car.puddles.add(o);
+            if (Math.abs(v.speed) <= 6 || v.ghost > 0) continue;
+            if (this.dodges(car)) { this.emit('dodge', car); continue; }
+            if (spinOut(v)) this.emit('spin', car, { water: !!o.water });
         }
     }
+
+    /** Talent du ninja : une chance sur quatre d'esquiver. */
+    dodges(car) { return car.v.spec.perk === 'dodge' && Math.random() < 0.25; }
 
     /** Cônes : ils volent quand on les touche, et la voiture perd un peu de vitesse. */
     checkProps(car) {
@@ -235,24 +286,32 @@ export class RaceSim {
         }
     }
 
+    /**
+     * Boîtes mystère : on teste tout le trajet parcouru pendant le pas (pas seulement le point d'arrivée),
+     * avec la taille réelle du cube et de la voiture. Une boîte touchée se casse toujours,
+     * même si l'on a déjà un objet (on n'en reçoit simplement pas de nouveau).
+     */
     checkPickups(car) {
         const v = car.v;
-        if (car.item || v.y > 4) return;
+        if (v.y > PICKUP_HEIGHT) return;
+        const r = PICKUP_HALF + v.spec.radius * 0.85;
+        const ax = car.px, az = car.pz, ux = v.x - ax, uz = v.z - az, l2 = ux * ux + uz * uz;
         for (const p of this.pickups) {
             if (p.timer > 0) continue;
-            const dx = v.x - p.x, dz = v.z - p.z;
-            if (dx * dx + dz * dz < 20) {
-                p.timer = PICKUP_RESPAWN;
-                car.item = this.rollItem(car);
-                this.emit('pickup', car, { item: car.item, x: p.x, z: p.z });
-                return;
-            }
+            const t = l2 > 1e-6 ? Math.max(0, Math.min(1, ((p.x - ax) * ux + (p.z - az) * uz) / l2)) : 0;
+            const dx = ax + ux * t - p.x, dz = az + uz * t - p.z;
+            if (dx * dx + dz * dz > r * r) continue;
+            p.timer = PICKUP_RESPAWN;
+            if (car.item) { this.emit('boxBreak', car, { x: p.x, z: p.z }); continue; }
+            car.item = this.rollItem(car);
+            this.emit('pickup', car, { item: car.item, x: p.x, z: p.z });
         }
     }
 
     /** Tirage pondéré : les derniers reçoivent des objets pour remonter, les premiers pour se défendre. */
     rollItem(car, r = Math.random()) {
-        const back = this.cars.length > 1 ? (car.position - 1) / (this.cars.length - 1) : 0.5;
+        let back = this.cars.length > 1 ? (car.position - 1) / (this.cars.length - 1) : 0.5;
+        if (car.v.spec.perk === 'lucky') back = Math.min(1, back + 0.35);     // Kiko tire mieux
         const weights = ITEM_IDS.map(id => {
             const it = ITEMS[id];
             let w = it.front * (1 - back) + it.back * back;
@@ -274,10 +333,10 @@ export class RaceSim {
         const v = car.v, item = car.item;
         car.item = null;
         car.stats.items++;
-        const sinH = Math.sin(v.heading), cosH = Math.cos(v.heading);
+        const sinH = Math.sin(v.heading), cosH = Math.cos(v.heading), k = v.spec.itemTime ?? 1;
         switch (item) {
-            case 'turbo': giveBoost(v, 1.8); break;
-            case 'shield': v.shield = 6; break;
+            case 'turbo': giveBoost(v, 1.8 * k); break;
+            case 'shield': v.shield = 6 * k; break;
             case 'oil':
                 this.oils.push({ x: v.x - sinH * 5, z: v.z - cosH * 5, r: 3.2, age: 0, owner: car });
                 if (this.oils.length > 24) {
@@ -300,6 +359,7 @@ export class RaceSim {
                 for (const c of this.cars) {
                     if (c === car || c.position >= car.position || c.finished) continue;
                     if (c.v.shield > 0 || c.v.ghost > 0) { this.emit('blocked', c); continue; }
+                    if (this.dodges(c)) { this.emit('dodge', c); continue; }
                     c.v.zap = 3; c.v.vx *= 0.6; c.v.vz *= 0.6;
                     hit.push(c);
                     this.emit('zapped', c, { by: car });
@@ -308,13 +368,13 @@ export class RaceSim {
                 this.emit('zap', car, { targets: hit });
                 break;
             }
-            case 'magnet': v.magnet = 4; break;
-            case 'ghost': v.ghost = 4; break;
+            case 'magnet': v.magnet = 4 * k; break;
+            case 'ghost': v.ghost = 4 * k; break;
             case 'tornado':
                 this.projectiles.push({ kind: 'tornado', owner: car, s: car.nav.s, lat: car.nav.lat, x: v.x, z: v.z, y: 0, life: 6, travel: 0, id: Math.random() });
                 break;
             case 'spring':
-                v.vy = 16; v.y = 0.01;
+                v.vy = v.spec.perk === 'astro' ? 20 : 16; v.y = 0.01;
                 giveBoost(v, 0.8);
                 break;
         }
@@ -406,6 +466,7 @@ export class RaceSim {
         const v = target.v;
         if (v.ghost > 0) return false;
         if (v.shield > 0) { v.shield = 0; this.emit('blocked', target); return false; }
+        if (this.dodges(target)) { this.emit('dodge', target); return false; }
         v.spin = 0; // force un nouveau tête-à-queue
         spinOut(v);
         v.vx *= 0.5; v.vz *= 0.5;
@@ -457,9 +518,12 @@ export class RaceSim {
         const p = this.track.pointAt(car.respawnS, 0), v = car.v;
         v.x = p.x; v.z = p.z; v.y = 0; v.vy = 0; v.vx = 0; v.vz = 0; v.speed = 0; v.heading = p.heading;
         v.drifting = false; v.driftCharge = 0; v.spin = 0; v.boost = 0;
+        car.puddles.clear();
         car.nav.idx = this.track.indexAt(car.respawnS);
         car.lastS = car.respawnS;
         this.track.locate(v.x, v.z, car.nav.idx, car.nav);
+        car.g = this.elev.at(car.nav);
+        car.px = v.x; car.pz = v.z;
         this.emit('respawn', car);
     }
 
@@ -479,8 +543,9 @@ export class RaceSim {
                 b.x += nx * push; b.z += nz * push;
                 const rel = (a.vx - b.vx) * nx + (a.vz - b.vz) * nz;
                 if (rel > 0) {
-                    // Un bouclier renvoie l'autre voiture deux fois plus fort
-                    const ka = b.shield > 0 ? 1.2 : 0.6, kb = a.shield > 0 ? 1.2 : 0.6;
+                    // Un bouclier renvoie l'autre voiture deux fois plus fort ; les lourds (Bob, Monster Truck) bousculent les légers
+                    const ma = a.spec.mass ?? 1, mb = b.spec.mass ?? 1;
+                    const ka = (b.shield > 0 ? 1.2 : 0.6) * (2 * mb / (ma + mb)), kb = (a.shield > 0 ? 1.2 : 0.6) * (2 * ma / (ma + mb));
                     a.vx -= nx * rel * ka; a.vz -= nz * rel * ka;
                     b.vx += nx * rel * kb; b.vz += nz * rel * kb;
                     if (rel > 6) {

@@ -36,8 +36,10 @@ async function boot() {
     try {
         if (!hasWebGL()) throw new Error('webgl');
         ui.setProgress(0.05, 'Polices et interface');
+        // Les panneaux et les boîtes « ? » sont écrits avec la police du jeu : on l'attend un instant
+        await Promise.race([Promise.all([document.fonts?.load('64px "Russo One"'), document.fonts?.load('800 16px "Exo 2"')]).catch(() => {}), new Promise(r => setTimeout(r, 2500))]);
         await document.fonts?.ready;
-        game = new Game({ ui, audio, input, save });
+        game = new Game({ ui, audio, input, save, portraits: (id, skin) => preview?.portrait(id, skin, 96) ?? null });
         window.__game = game;     // accessible pour le débogage et les tests en jeu
         ui.setProgress(0.15, 'Le garage');
         preview = new Preview(document.getElementById('preview'));
@@ -47,7 +49,10 @@ async function boot() {
         ui.setProgress(0.25, 'Les carrosseries');
         await new Promise(r => setTimeout(r, 0));
         ui.setVehicleThumbs(preview.renderThumbnails(Object.keys(VEHICLES), 0xff8c1a));
-        preview.show(p.vehicle, COLORS[p.color]);
+        ui.setProgress(0.32, 'Les pilotes');
+        await new Promise(r => setTimeout(r, 0));
+        ui.setPortraitProvider((id, skin, size) => preview.portrait(id, skin, size));
+        preview.show(p.vehicle, COLORS[p.color], { skin: p.skin, wheels: p.wheels });
         await startDemo(0.4);
     } catch (e) {
         console.error(e);
@@ -95,7 +100,7 @@ function goSetup() {
     ui.hideTitle();
     ui.showMenu();
     const p = save.data.prefs;
-    preview?.show(p.vehicle, COLORS[p.color]);
+    preview?.show(p.vehicle, COLORS[p.color], { skin: p.skin, wheels: p.wheels });
 }
 
 ui.on('play', goSetup);
@@ -113,7 +118,7 @@ ui.on('restart', () => { game.setPaused(false); launch(lastCfg); });
 ui.on('resume', () => game.setPaused(false));
 ui.on('pause', () => game.togglePause());
 ui.on('quit', () => { cup = null; game.setPaused(false); goSetup(); });
-ui.on('previewChanged', (type, color) => preview?.show(type, color));
+ui.on('previewChanged', (type, color, opts) => preview?.show(type, color, opts));
 ui.on('next', () => {
     if (!cup) { launch(lastCfg); return; }
     if (cup.done) { cup = null; goSetup(); return; }
@@ -129,7 +134,7 @@ ui.showResults = (res, cfg) => {
         cup.done = cup.index >= cup.tracks.length - 1;
         if (cup.done) {
             const top = Object.entries(cup.standings).sort((a, b) => b[1] - a[1])[0][0];
-            if (top === 'Toi') res.unlocked.push(...save.awardCup());
+            if (res.ranking.find(r => r.name === top)?.human) res.unlocked.push(...save.awardCup());
         }
     }
     showResults(res, cfg, cup);

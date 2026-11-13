@@ -5,9 +5,9 @@
 //  Aucun rechargement de page : tout se construit et se détruit ici.
 // ============================================================
 import * as THREE from 'three';
-import { FIXED_DT, BOT_NAMES, BOT_COLORS, VEHICLES } from './config.js';
+import { FIXED_DT, VEHICLES, CHARACTERS } from './config.js';
 import { getTrack, TRACK_ORDER } from './tracks.js';
-import { RaceSim, createCar } from './sim.js';
+import { RaceSim, createCar, buildRoster } from './sim.js';
 import { World, ROAD_Y } from './world.js';
 import { BIOMES, BIOME_ORDER } from './biomes.js';
 import { Effects } from './effects.js';
@@ -16,12 +16,12 @@ import { buildVehicleModel, animateModel } from './models.js';
 import { computeScore, medalForTime, medalForPosition } from './storage.js';
 
 const CAMERA_MODES = ['chase', 'far', 'hood'];
-const BOT_VEHICLES = ['sport', 'muscle', 'drift', 'f1', 'kart', 'truck', 'proto'];
 const INTRO_TIME = 5.6;
 
 export class Game {
-    constructor({ ui, audio, input, save }) {
+    constructor({ ui, audio, input, save, portraits }) {
         this.ui = ui; this.audio = audio; this.input = input; this.save = save;
+        this.portraits = portraits ?? (() => null);      // (pilote, apparence) → image, la même que dans le menu
         this.state = 'menu';
         this.paused = false;
         this.acc = 0;
@@ -54,30 +54,30 @@ export class Game {
         this.biomeId = biome;
         const laps = track.closed ? cfg.laps : 1;
         const cars = [];
-        const botCount = cfg.bots;
-
+        // Entre 4 et 8 pilotes ; les adversaires sont les autres personnages (leur nom, leur voiture, leur couleur)
+        const bots = buildRoster(cfg);
+        const botCount = this.botCount = bots.length;
         // Les joueurs partent derrière : il faut remonter le peloton
-        for (let i = 0; i < botCount; i++) {
-            cars.push(createCar(track, BOT_VEHICLES[(i + (cfg.shuffle ?? 0)) % BOT_VEHICLES.length], {
-                slot: i, name: BOT_NAMES[i % BOT_NAMES.length], color: BOT_COLORS[i % BOT_COLORS.length], difficulty: cfg.difficulty,
-            }));
-        }
+        bots.forEach((b, i) => cars.push(createCar(track, b.vehicle, { slot: i, difficulty: cfg.difficulty, ...b })));
         cfg.players.forEach((p, i) => {
-            cars.push(createCar(track, p.vehicle, { slot: botCount + i, human: true, playerIndex: i, name: p.name, color: p.color }));
+            cars.push(createCar(track, p.vehicle, { slot: botCount + i, human: true, playerIndex: i, name: p.name, color: p.color, character: p.character, skin: p.skin, wheels: p.wheels }));
         });
         const sim = new RaceSim({ track, laps, cars, mode: cfg.mode, biome });
         const humans = cars.filter(c => c.human);
 
-        const world = await World.create(track, biome, this.renderer, { shadows: this.save.data.settings.shadows, wideShadow: humans.length === 2 }, onProgress);
-        onProgress(0.95, 'Les voitures');
+        const world = await World.create(track, biome, this.renderer, { shadows: this.save.data.settings.shadows, wideShadow: humans.length === 2, elev: sim.elev }, onProgress);
+        onProgress(0.95, 'Les pilotes');
         const effects = new Effects(world.scene);
+        effects.h = (x, z) => world.roadHeight(x, z);
         const items = new ItemFX(world.scene, effects);
         for (const car of cars) {
-            car.model = buildVehicleModel(car.v.type, car.color);
-            car.model.root.position.set(car.v.x, ROAD_Y, car.v.z);
+            car.model = buildVehicleModel(car.v.type, car.color, { character: car.character, skin: car.skin, wheels: car.wheels });
+            car.portrait = this.portraits(car.character, car.skin);
+            car.model.root.position.set(car.v.x, ROAD_Y + car.g, car.v.z);
             car.model.root.rotation.y = car.v.heading;
             world.scene.add(car.model.root);
-            car.prev = { x: car.v.x, y: car.v.y, z: car.v.z, h: car.v.heading };
+            car.prev = { x: car.v.x, y: car.v.y, z: car.v.z, h: car.v.heading, g: car.g };
+            car.renderG = car.g;
             car.markL = { active: false }; car.markR = { active: false };
             if (car.human) {
                 const c = new THREE.PerspectiveCamera(70, 1, 0.5, 2600);
@@ -85,8 +85,8 @@ export class Game {
             }
         }
         // Les shaders sont préparés maintenant, pas pendant la course
-        this.directorCam.position.set(cars[0].v.x, 20, cars[0].v.z - 30);
-        this.directorCam.lookAt(cars[0].v.x, 0, cars[0].v.z);
+        this.directorCam.position.set(cars[0].v.x, cars[0].g + 20, cars[0].v.z - 30);
+        this.directorCam.lookAt(cars[0].v.x, cars[0].g, cars[0].v.z);
         this.renderer.compile(world.scene, this.directorCam);
         onProgress(1, 'C\'est parti !');
 
@@ -121,7 +121,8 @@ export class Game {
         this.goTimer = 0;
         this.introTime = 0;
         this.setState('intro');
-        this.ui.showIntro({ track: this.track.name, biome: BIOMES[this.biomeId].name, laps: this.sim.laps, mode: cfg.mode });
+        const me = this.humans[0];
+        this.ui.showIntro({ track: this.track.name, biome: BIOMES[this.biomeId].name, laps: this.sim.laps, mode: cfg.mode, racers: this.sim.cars.length, portrait: me.portrait, pilot: CHARACTERS[me.character]?.name });
         this.audio.setMusic('race');
         this.audio.resume();
     }
@@ -131,7 +132,7 @@ export class Game {
         const unlocked = TRACK_ORDER.filter(id => id !== 'droite');
         const track = unlocked[Math.floor(Math.random() * unlocked.length)];
         const biome = BIOME_ORDER[Math.floor(Math.random() * BIOME_ORDER.length)];
-        await this.build({ mode: 'race', track, biome, laps: 50, bots: 6, difficulty: 'hard', players: [], shuffle: Math.floor(Math.random() * 7) }, onProgress);
+        await this.build({ mode: 'race', track, biome, laps: 50, racers: 8, difficulty: 'hard', players: [] }, onProgress);
         this.humans = [];
         this.input.active = false;
         this.shot = null;
@@ -260,7 +261,7 @@ export class Game {
     savePrev() {
         for (const car of this.sim.cars) {
             const p = car.prev, v = car.v;
-            p.x = v.x; p.y = v.y; p.z = v.z; p.h = v.heading;
+            p.x = v.x; p.y = v.y; p.z = v.z; p.h = v.heading; p.g = car.g;
         }
     }
 
@@ -336,11 +337,18 @@ export class Game {
                     break;
                 case 'crash': case 'bump':
                     if (me) { a.crash(e.power); car.view.shake = Math.min(0.9, car.view.shake + e.power * 0.03); }
-                    this.effects.sparks(car.v.x, 0.7, car.v.z, Math.min(16, 4 + Math.floor(e.power)));
+                    this.effects.sparks(car.v.x, car.g + 0.7, car.v.z, Math.min(16, 4 + Math.floor(e.power)));
                     break;
                 case 'pickup':
-                    this.effects.burst(e.x, 1.5, e.z);
+                    this.effects.burst(e.x, car.g + 1.7, e.z);
                     if (me) { a.pickup(); ui.setItem(car.playerIndex, e.item); }
+                    break;
+                case 'boxBreak':
+                    this.effects.burst(e.x, car.g + 1.7, e.z);
+                    if (me) a.land();
+                    break;
+                case 'dodge':
+                    if (me) ui.toast(car.playerIndex, 'Esquive !', 'good', car.portrait);
                     break;
                 case 'useItem':
                     if (me) {
@@ -349,10 +357,10 @@ export class Game {
                     }
                     break;
                 case 'hit':
-                    if (me) { a.spin(); car.view.shake = 0.7; ui.toast(car.playerIndex, 'Touché !', 'bad'); }
-                    if (e.by?.human) ui.toast(e.by.playerIndex, `Bien visé : ${car.name} !`, 'good');
+                    if (me) { a.spin(); car.view.shake = 0.7; ui.toast(car.playerIndex, e.by ? `Touché par ${e.by.name} !` : 'Touché !', 'bad', e.by?.portrait); }
+                    if (e.by?.human) ui.toast(e.by.playerIndex, `Bien visé : ${car.name} !`, 'good', car.portrait);
                     break;
-                case 'zapped': if (me) { a.spin(); ui.toast(car.playerIndex, 'Foudroyé !', 'bad'); } break;
+                case 'zapped': if (me) { a.spin(); ui.toast(car.playerIndex, `Foudroyé par ${e.by?.name ?? '?'} !`, 'bad', e.by?.portrait); } break;
                 case 'blocked': if (me) ui.toast(car.playerIndex, 'Bloqué !', 'good'); break;
                 case 'explode': {
                     a.crash(14);
@@ -363,7 +371,7 @@ export class Game {
                     break;
                 }
                 case 'cone': if (me) a.land(); break;
-                case 'spin': if (me) { a.spin(); ui.toast(car.playerIndex, 'Glissade !', 'bad'); } break;
+                case 'spin': if (me) { a.spin(); ui.toast(car.playerIndex, e.water ? 'Aquaplaning !' : 'Glissade !', 'bad'); } break;
                 case 'jump': case 'ramp': case 'hop': if (me) a.jump(); break;
                 case 'land': if (me) { a.land(); car.view.shake = Math.min(0.5, car.view.shake + e.power * 0.02); } break;
                 case 'respawn':
@@ -379,7 +387,7 @@ export class Game {
     emitEffects() {
         const fx = this.effects;
         for (const car of this.sim.cars) {
-            const v = car.v, sinH = Math.sin(v.heading), cosH = Math.cos(v.heading), m = car.model;
+            const v = car.v, sinH = Math.sin(v.heading), cosH = Math.cos(v.heading), m = car.model, gy = car.g;
             const wx = m.rearX, wz = m.rearZ;
             const lx = v.x + sinH * wz + cosH * wx, lz = v.z + cosH * wz - sinH * wx;
             const rx = v.x + sinH * wz - cosH * wx, rz = v.z + cosH * wz + sinH * wx;
@@ -391,7 +399,7 @@ export class Game {
             const lifted = car.wasThrottle && !v.throttle && v.speed > v.spec.topSpeed * 0.55;
             car.wasThrottle = v.throttle > 0;
             if (lifted) {
-                fx.backfire(v.x + sinH * m.tail, 0.42 + v.y, v.z + cosH * m.tail, -sinH, -cosH);
+                fx.backfire(v.x + sinH * m.tail, gy + 0.42 + v.y, v.z + cosH * m.tail, -sinH, -cosH);
                 if (car.human) this.audio.backfire();
             }
 
@@ -415,8 +423,8 @@ export class Game {
             }
             if (v.boost > 0) {
                 const tx = v.x + sinH * m.tail, tz = v.z + cosH * m.tail;
-                fx.flame(tx + cosH * 0.35, 0.45 + v.y, tz - sinH * 0.35, v.vx - sinH * 8, v.vz - cosH * 8);
-                fx.flame(tx - cosH * 0.35, 0.45 + v.y, tz + sinH * 0.35, v.vx - sinH * 8, v.vz - cosH * 8);
+                fx.flame(tx + cosH * 0.35, gy + 0.45 + v.y, tz - sinH * 0.35, v.vx - sinH * 8, v.vz - cosH * 8);
+                fx.flame(tx - cosH * 0.35, gy + 0.45 + v.y, tz + sinH * 0.35, v.vx - sinH * 8, v.vz - cosH * 8);
             }
         }
     }
@@ -428,8 +436,12 @@ export class Game {
         const sim = this.sim;
         for (const car of sim.cars) {
             const p = car.prev, v = car.v, r = car.model.root;
-            r.position.set(p.x + (v.x - p.x) * alpha, ROAD_Y + p.y + (v.y - p.y) * alpha, p.z + (v.z - p.z) * alpha);
+            car.renderG = p.g + (car.g - p.g) * alpha;
+            r.position.set(p.x + (v.x - p.x) * alpha, ROAD_Y + car.renderG + p.y + (v.y - p.y) * alpha, p.z + (v.z - p.z) * alpha);
             r.rotation.y = p.h + (v.heading - p.h) * alpha;
+            // En montagne, la voiture se cabre dans les montées et pique dans les descentes
+            const pitch = v.y > 0 ? 0 : -Math.atan(v.slope);
+            r.rotation.x += (pitch - r.rotation.x) * Math.min(1, dt * 10);
             animateModel(car.model, v, dt);
         }
         if (this.ghost) this.updateGhost();
@@ -442,9 +454,9 @@ export class Game {
         this.world.update(dt, sim, views[0].cam.position);
 
         const focus = this.humans.length ? this.humans : [this.shot?.car ?? sim.cars[0]];
-        let fx = 0, fz = 0;
-        for (const c of focus) { fx += c.model.root.position.x; fz += c.model.root.position.z; }
-        this.world.followShadow(fx / focus.length, fz / focus.length);
+        let fx = 0, fy = 0, fz = 0;
+        for (const c of focus) { fx += c.model.root.position.x; fy += c.renderG ?? 0; fz += c.model.root.position.z; }
+        this.world.followShadow(fx / focus.length, fy / focus.length, fz / focus.length);
         this.renderer.shadowMap.needsUpdate = true;
 
         const H = this.renderer.domElement.clientHeight;
@@ -483,15 +495,16 @@ export class Game {
     /** Ouverture en trois plans : survol du circuit, travelling sur la grille, descente derrière le joueur. */
     introCamera(cam) {
         const t = this.introTime, track = this.track, player = this.humans[0], root = player.model.root;
-        const ease = x => x * x * (3 - 2 * x);
+        const ease = x => x * x * (3 - 2 * x), E = this.sim.elev;
         if (t < 2.4) {
             // Plan 1 : un drone remonte la piste jusqu'à la grille
             const k = ease(t / 2.4);
             const s = track.startS + 260 * (1 - k) + 20;
             const p = track.pointAt(track.closed ? s % track.length : Math.min(track.length - 1, s), 0);
             const ahead = track.pointAt(track.closed ? (s - 40 + track.length) % track.length : Math.max(0, s - 40), 0);
-            cam.position.set(p.x, 34 - k * 18, p.z);
-            cam.lookAt(ahead.x, 0, ahead.z);
+            const sw = track.closed ? s % track.length : Math.min(track.length - 1, s);
+            cam.position.set(p.x, E.atS(sw) + 34 - k * 18, p.z);
+            cam.lookAt(ahead.x, E.atS(sw), ahead.z);
             cam.fov = 55;
         } else if (t < 4.4) {
             // Plan 2 : travelling au ras du sol le long de la grille
@@ -500,8 +513,8 @@ export class Game {
             const s = track.closed ? (sGrid + track.length) % track.length : Math.max(1, sGrid);
             const p = track.pointAt(s, 0);
             const side = track.pointAt(s, p.width + 2.5);
-            cam.position.set(side.x, 1.4, side.z);
-            cam.lookAt(p.x, 0.9, p.z);
+            cam.position.set(side.x, E.atS(s) + 1.4, side.z);
+            cam.lookAt(p.x, E.atS(s) + 0.9, p.z);
             cam.fov = 50;
         } else {
             // Plan 3 : la grue descend derrière le joueur
@@ -509,7 +522,7 @@ export class Game {
             const h = root.rotation.y;
             const dist = 14 - k * 6.8, height = 10 - k * 7;
             cam.position.set(root.position.x - Math.sin(h) * dist, root.position.y + height, root.position.z - Math.cos(h) * dist);
-            cam.lookAt(root.position.x + Math.sin(h) * 6, 1, root.position.z + Math.cos(h) * 6);
+            cam.lookAt(root.position.x + Math.sin(h) * 6, root.position.y + 1, root.position.z + Math.cos(h) * 6);
             cam.fov = 60 + k * 6;
         }
         cam.updateProjectionMatrix();
@@ -533,34 +546,34 @@ export class Game {
             case 'chase':
                 target.set(p.x - sinH * 8, p.y + 3, p.z - cosH * 8);
                 cam.position.lerp(target, shot.time < 0.05 ? 1 : 1 - Math.exp(-dt * 6));
-                cam.lookAt(p.x + sinH * 6, 1, p.z + cosH * 6);
+                cam.lookAt(p.x + sinH * 6, p.y + 1, p.z + cosH * 6);
                 cam.fov = 64;
                 break;
             case 'trackside':
                 if (!shot.spot) {
                     const s = (shot.car.nav.s + 70) % track.length;
                     const q = track.pointAt(s, (track.pointAt(s, 0).width + 4) * (Math.random() < 0.5 ? 1 : -1));
-                    shot.spot = new THREE.Vector3(q.x, 1.3, q.z);
+                    shot.spot = new THREE.Vector3(q.x, this.sim.elev.atS(s) + 1.3, q.z);
                 }
                 cam.position.copy(shot.spot);
-                cam.lookAt(p.x, 0.9, p.z);
+                cam.lookAt(p.x, p.y + 0.9, p.z);
                 cam.fov = 38;
                 break;
             case 'heli': {
                 const a = shot.time * 0.35;
-                cam.position.set(p.x + Math.cos(a) * 26, 18, p.z + Math.sin(a) * 26);
-                cam.lookAt(p.x, 0, p.z);
+                cam.position.set(p.x + Math.cos(a) * 26, p.y + 18, p.z + Math.sin(a) * 26);
+                cam.lookAt(p.x, p.y, p.z);
                 cam.fov = 50;
                 break;
             }
             case 'front':
                 cam.position.set(p.x + sinH * 7 + cosH * 2, p.y + 1.1, p.z + cosH * 7 - sinH * 2);
-                cam.lookAt(p.x, 0.8, p.z);
+                cam.lookAt(p.x, p.y + 0.8, p.z);
                 cam.fov = 58;
                 break;
             case 'wheel':
-                cam.position.set(p.x + cosH * 3.2 - sinH * 2, 0.6, p.z - sinH * 3.2 - cosH * 2);
-                cam.lookAt(p.x + sinH * 4, 0.6, p.z + cosH * 4);
+                cam.position.set(p.x + cosH * 3.2 - sinH * 2, p.y + 0.6, p.z - sinH * 3.2 - cosH * 2);
+                cam.lookAt(p.x + sinH * 4, p.y + 0.6, p.z + cosH * 4);
                 cam.fov = 70;
                 break;
         }
@@ -574,12 +587,13 @@ export class Game {
         if (b + 2 >= data.length) { model.root.visible = false; return; }
         const f = t - i;
         model.root.visible = true;
-        model.root.position.set((data[a] + (data[b] - data[a]) * f) / 10, ROAD_Y, (data[a + 1] + (data[b + 1] - data[a + 1]) * f) / 10);
+        const gx = (data[a] + (data[b] - data[a]) * f) / 10, gz = (data[a + 1] + (data[b + 1] - data[a + 1]) * f) / 10;
+        model.root.position.set(gx, ROAD_Y + this.world.roadHeight(gx, gz), gz);
         model.root.rotation.y = (data[a + 2] + (data[b + 2] - data[a + 2]) * f) / 100;
     }
 
     updateCamera(car, dt) {
-        const view = car.view, cam = view.cam, v = car.v, root = car.model.root;
+        const view = car.view, cam = view.cam, v = car.v, root = car.model.root, gy = car.renderG ?? 0;
         const mode = CAMERA_MODES[view.mode];
         const k = 1 - Math.exp(-dt * 7);
 
@@ -589,7 +603,7 @@ export class Game {
                 // Ralenti : caméra posée devant la voiture, au ras du sol
                 if (!view.finishSpot) {
                     const h = root.rotation.y;
-                    view.finishSpot = new THREE.Vector3(root.position.x + Math.sin(h) * 14 + Math.cos(h) * 3, 1, root.position.z + Math.cos(h) * 14 - Math.sin(h) * 3);
+                    view.finishSpot = new THREE.Vector3(root.position.x + Math.sin(h) * 14 + Math.cos(h) * 3, gy + 1, root.position.z + Math.cos(h) * 14 - Math.sin(h) * 3);
                 }
                 cam.position.copy(view.finishSpot);
                 cam.fov = 45;
@@ -597,12 +611,12 @@ export class Game {
                 const a = t * 0.5;
                 const px = root.position.x + Math.cos(a) * 10, pz = root.position.z + Math.sin(a) * 10;
                 cam.position.x += (px - cam.position.x) * k * 0.6;
-                cam.position.y += (4 - cam.position.y) * k * 0.6;
+                cam.position.y += (gy + 4 - cam.position.y) * k * 0.6;
                 cam.position.z += (pz - cam.position.z) * k * 0.6;
                 cam.fov = 60;
             }
             cam.updateProjectionMatrix();
-            cam.lookAt(root.position.x, 0.9, root.position.z);
+            cam.lookAt(root.position.x, gy + 0.9, root.position.z);
             return;
         }
         view.finishSpot = null;
@@ -636,7 +650,7 @@ export class Game {
                 // Raccord avec la fin de la cinématique
                 cam.position.copy(this.directorCam.position);
             } else cam.position.set(tx, ty, tz);
-            view.look.set(root.position.x + bx * lookAhead, lookY, root.position.z + bz * lookAhead);
+            view.look.set(root.position.x + bx * lookAhead, gy + lookY, root.position.z + bz * lookAhead);
             view.snapped = true;
         }
         const kPos = 1 - Math.exp(-dt * 11);
@@ -644,7 +658,7 @@ export class Game {
         cam.position.y += (ty - cam.position.y) * kPos;
         cam.position.z += (tz - cam.position.z) * kPos;
         view.look.x += (root.position.x + bx * lookAhead - view.look.x) * kPos;
-        view.look.y += (lookY + root.position.y * 0.5 - view.look.y) * kPos;
+        view.look.y += (gy + lookY + (root.position.y - gy) * 0.5 - view.look.y) * kPos;
         view.look.z += (root.position.z + bz * lookAhead - view.look.z) * kPos;
 
         // Sensation de vitesse et secousses (chocs, atterrissages, turbo)
@@ -689,7 +703,7 @@ export class Game {
         for (const c of this.humans) {
             const stats = { ...c.stats };
             const entry = {
-                name: c.name, vehicle: c.v.type, time: c.finishTime, lapTimes: c.lapTimes, position: c.position,
+                name: c.name, vehicle: c.v.type, character: c.character, skin: c.skin, portrait: c.portrait, time: c.finishTime, lapTimes: c.lapTimes, position: c.position,
                 bestLap: Math.min(...c.lapTimes), topSpeed: stats.topSpeed, stats, medal: null,
             };
             entry.score = track.id === 'droite' ? computeScore(c.finishTime, stats.topSpeed, stats) : null;
@@ -701,7 +715,7 @@ export class Game {
                 Object.assign(entry, saved);
                 entry.medal = cfg.mode === 'tt'
                     ? medalForTime(c.finishTime, track.def.par, sim.laps)
-                    : medalForPosition(c.position, cfg.bots);
+                    : medalForPosition(c.position, this.botCount);
                 out.unlocked.push(...this.save.awardMedal(track.id, entry.medal));
             }
             entry.record = this.save.getRecord(track.id, c.v.type, sim.laps);
@@ -711,10 +725,11 @@ export class Game {
         }
 
         out.ranking = sim.order.map(c => ({
-            name: c.name, vehicle: c.v.type, human: c.human, finished: c.finished, time: c.finishTime,
+            name: c.name, vehicle: c.v.type, human: c.human, character: c.character, skin: c.skin, portrait: c.portrait, finished: c.finished, time: c.finishTime,
             gap: c.finished ? 0 : Math.max(0, sim.totalLen - c.maxDist),
         }));
         out.mode = cfg.mode;
+        out.bots = this.botCount;
         out.trackName = track.name;
         out.biomeName = BIOMES[this.biomeId].name;
         return out;

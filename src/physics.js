@@ -6,15 +6,16 @@
 import { getSpec } from './config.js';
 
 const GRAVITY = 28;
+const SLOPE_G = 15;               // effet de la pente sur la vitesse
 export const HOP = 6.2;              // petit bond du saut synchro (environ 0,45 s en l'air)
 const STOP_BEFORE_REVERSE = 0.25;      // pause avant de passer en marche arrière
 const DRIFT_MIN_SPEED = 18;
 export const DRIFT_TIER1 = 0.7;
 export const DRIFT_TIER2 = 1.5;
 
-export function createVehicle(type, x, z, heading) {
+export function createVehicle(type, x, z, heading, { character = null, wheels = 'route' } = {}) {
     return {
-        type, spec: getSpec(type), x, z, y: 0, vy: 0, heading, vx: 0, vz: 0,
+        type, spec: getSpec(type, character, wheels), x, z, y: 0, vy: 0, heading, vx: 0, vz: 0, slope: 0,
         speed: 0, lateral: 0, steer: 0, accelG: 0, throttle: 0,
         zap: 0, ghost: 0, magnet: 0, gripMult: 1, offMult: 1, hopped: false,
         drifting: false, driftDir: 0, driftCharge: 0, driftBoostTier: 0,
@@ -23,11 +24,11 @@ export function createVehicle(type, x, z, heading) {
     };
 }
 
-export function giveBoost(v, seconds) { v.boost = Math.max(v.boost, seconds); }
+export function giveBoost(v, seconds) { v.boost = Math.max(v.boost, seconds * (v.spec.boostMult ?? 1)); }
 
 export function spinOut(v) {
     if (v.shield > 0 || v.spin > 0 || v.ghost > 0) return false;
-    v.spin = 0.9;
+    v.spin = 0.9 * (v.spec.spinTime ?? 1);
     v.vx *= 0.55; v.vz *= 0.55;
     if (v.drifting) { v.drifting = false; v.driftCharge = 0; }
     return true;
@@ -65,7 +66,7 @@ export function stepVehicle(v, inp, dt) {
 
     if (inp.jump && s.jump > 0 && !spinning) { v.vy = s.jump; v.y = 0.001; v.jumped = true; }
     // Saut synchro : un petit bond au moment où l'on appuie sur le bouton de drift
-    else if (inp.hop && !spinning) { v.vy = HOP; v.y = 0.001; v.hopped = true; }
+    else if (inp.hop && !spinning) { v.vy = s.hop ?? HOP; v.y = 0.001; v.hopped = true; }
 
     const sin0 = Math.sin(v.heading), cos0 = Math.cos(v.heading);
     let vF = v.vx * sin0 + v.vz * cos0;
@@ -73,7 +74,8 @@ export function stepVehicle(v, inp, dt) {
 
     // --- Moteur : la vitesse de pointe dépend de la stat Vitesse, le temps pour l'atteindre de la stat Accél. ---
     const slow = v.zap > 0 ? 0.6 : 1;
-    let top = (v.onRoad ? s.topSpeed : s.offroadTop * v.offMult) * v.perf * slow;
+    // En descente on va un peu plus vite, en montée la pente freine (v.slope : pente dans le sens du capot)
+    let top = (v.onRoad ? s.topSpeed : s.offroadTop * v.offMult) * v.perf * slow * (1 + Math.max(0, -v.slope) * 0.9);
     let acc = (v.onRoad ? s.accel : s.offroadAccel) * v.perf * slow;
     if (v.boost > 0) { top = Math.max(top, s.topSpeed * v.perf * (v.onRoad ? 1 : 0.75)) * 1.25; acc = acc * 1.8 + 8; }
 
@@ -93,6 +95,8 @@ export function stepVehicle(v, inp, dt) {
             if (v.reverseTimer >= STOP_BEFORE_REVERSE) vF = Math.max(-top * 0.3, vF - s.reverseAccel * brake * dt);
         }
     } else v.reverseTimer = 0;
+
+    if (v.slope) vF -= SLOPE_G * v.slope * dt;
 
     // --- Trop vite pour la surface (ex. sortie dans l'herbe) : on ralentit progressivement ---
     if (vF > top) vF = Math.max(top, vF - (v.onRoad ? 18 : 55) * dt);

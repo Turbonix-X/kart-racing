@@ -15,7 +15,7 @@ const DEFAULT_DATA = () => ({
     ghosts: {},       // "piste_vehicule_tours" -> échantillons du meilleur chrono
     medals: {},       // "piste" -> gold | silver | bronze
     cups: 0,
-    prefs: { color: 0, vehicle: 'sport', track: 'ovale', biome: 'auto', laps: 3, bots: 5, difficulty: 'normal', mode: 'race' },
+    prefs: { color: 0, vehicle: 'sport', track: 'ovale', biome: 'auto', laps: 3, racers: 6, difficulty: 'normal', mode: 'race', character: 'bob', skin: 'classique', wheels: 'route', p2Character: 'lina' },
     settings: { music: 0.7, sfx: 0.8, muted: false, shadows: true, theme: null, intro: true },
 });
 
