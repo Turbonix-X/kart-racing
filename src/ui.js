@@ -10,6 +10,7 @@ import { BIOMES, BIOME_ORDER } from './biomes.js';
 import { ITEMS, ITEM_IDS } from './sim.js';
 import { formatTime } from './storage.js';
 import { ICONS, hydrateIcons } from './icons.js';
+import { SCHEMES } from './input.js';
 
 const $ = id => document.getElementById(id);
 const hex = c => '#' + c.toString(16).padStart(6, '0');
@@ -21,12 +22,15 @@ const MODES = {
 };
 const STATS = [['speed', 'Vitesse'], ['accel', 'Accélération'], ['handling', 'Maniabilité'], ['offroad', 'Hors-piste'], ['drift', 'Drift']];
 export const TIPS = [
-    'Chaque pilote a son talent : Bob bouscule tout le monde, Shin esquive un objet sur quatre.',
+    'Chaque pilote a son talent : Bougadi bouscule tout le monde, Ninjacon esquive un objet sur quatre.',
+    'Maintiens R pour regarder derrière toi ; un appui court te replace sur la piste.',
+    'Une manette branchée fonctionne tout de suite : gâchette droite pour accélérer, X pour les objets.',
+    'À deux joueurs, tu peux jouer clavier contre manette, ou avec deux manettes.',
     'Les roues Tout-terrain collent à la glace et au sable, les Slicks volent sur le bitume.',
     'En montagne, la pente freine dans les montées : prends de l\'élan dans les descentes.',
     'Une flaque d\'eau ne fait glisser qu\'une fois, même si tu restes dedans.',
     'Une boîte mystère se casse même si tu as déjà un objet : vise celles qui sont libres.',
-    'Kiko le singe tire de meilleurs objets dans les boîtes mystère.',
+    'Capitaine Corail tire de meilleurs objets dans les boîtes mystère.',
     'L\'apparence Or massif dore le pilote et sa voiture, partout dans le jeu.',
     'Appuie sur Maj pour un saut synchro : il passe par-dessus les flaques d\'huile.',
     'Garde Maj en tournant : la fumée passe au vert puis à l\'orange, relâche pour un boost.',
@@ -73,8 +77,13 @@ export class UI {
         this.portrait = () => null;      // fourni par la vitrine 3D : (pilote, apparence) → image
         // Le pointeur principal, pas la simple présence d'un écran tactile : un PC tactile garde son clavier
         this.isTouch = window.matchMedia?.('(pointer: coarse)').matches ?? false;
+        input.isTouch = this.isTouch;
         document.body.classList.toggle('touch', this.isTouch);
-        for (const id of ['version', 'title-version']) setText($(id), VERSION);
+        // L'étiquette de version, à côté du logo : un clic ouvre le journal de toutes les versions
+        for (const id of ['version', 'title-version', 'load-version']) {
+            setText($(id), VERSION);
+            $(id).onclick = () => this.openNews();
+        }
         hydrateIcons();
         this.sanitizePrefs();
         this.buildMenu();
@@ -197,6 +206,10 @@ export class UI {
             b.onclick = () => { p.wheels = id; this.refreshMenu(); this.previewChanged(); };
             wheels.appendChild(b);
         }
+        for (const [id, label] of [['auto', 'Automatique'], ...Object.entries(SCHEMES)]) $('duel-controls').add(new Option(label, id));
+        $('duel-controls').value = SCHEMES[p.duelControls] ? p.duelControls : 'auto';
+        $('duel-controls').onchange = e => { p.duelControls = e.target.value; this.setPadCount(this.input.padCount); this.save.write(); };
+        this.setPadCount(this.input.padCount);
         for (const id of CHARACTER_IDS) $('p2-character').add(new Option(CHARACTERS[id].name, id));
         $('p2-character').value = p.p2Character;
         $('p2-character').onchange = e => { p.p2Character = e.target.value; this.save.write(); };
@@ -239,6 +252,17 @@ export class UI {
     previewChanged() {
         const p = this.prefs;
         this.handlers.previewChanged?.(p.vehicle, COLORS[p.color], { skin: p.skin, wheels: p.wheels });
+    }
+
+    /** Manettes branchées : état affiché dans le menu, et répartition des commandes à deux joueurs. */
+    setPadCount(n) {
+        const p = this.prefs;
+        const scheme = SCHEMES[p.duelControls] ? p.duelControls : this.input.bestScheme();
+        const need = scheme.split('-').filter(d => d === 'pad').length;
+        let txt = n === 0 ? '🎮 Aucune manette détectée. Branche-la puis appuie sur un de ses boutons.' : `🎮 ${n} manette${n > 1 ? 's' : ''} détectée${n > 1 ? 's' : ''}.`;
+        txt += need > n ? ` Il en manque ${need - n} pour « ${SCHEMES[scheme]} » : la course se jouera au clavier.` : ` Commandes : ${SCHEMES[scheme]}.`;
+        setText($('pad-status'), txt);
+        setText($('pad-solo'), n ? `🎮 Manette détectée : tu peux jouer avec.` : '');
     }
 
     /** La vitrine 3D fournit les portraits : on (re)construit la grille des pilotes. */
@@ -438,6 +462,7 @@ export class UI {
         const cfg = { mode: p.mode, track: p.track, biome: p.biome, laps: p.laps, racers: p.racers, difficulty: p.difficulty, players: [me] };
         if (p.mode === 'champ') cfg.racers = MAX_RACERS;
         if (p.mode === 'duel') {
+            cfg.controls = SCHEMES[p.duelControls] ? p.duelControls : this.input.bestScheme();
             const id = $('p2-character').value;
             cfg.players.push({ vehicle: $('p2-vehicle').value, color: COLORS[+$('p2-color').value], name: CHARACTERS[id].name, character: id, skin: 'classique', wheels: 'route' });
         }
@@ -605,6 +630,7 @@ export class UI {
         el.className = 'hud';
         const showPos = sim.cars.length > 1;
         const laps = sim.laps;
+        const hint = this.input.hint(car.playerIndex);
         el.innerHTML = `
             <div class="speed-lines" data-f="lines"></div>
             <div class="hud-tl">
@@ -618,7 +644,7 @@ export class UI {
             </div>
             <div class="hud-center"><div data-f="center"></div><div data-f="toasts"></div></div>
             <div class="drift-wrap" data-f="driftWrap"><div class="drift-bar" data-f="drift"></div></div>
-            ${sim.mode === 'tt' ? '' : `<div class="item-slot" data-f="item" title="Objet"><span class="slot-ico" data-f="itemIco"></span><kbd>${count > 1 ? (car.playerIndex ? 'L' : 'E') : 'E'}</kbd></div>`}
+            ${sim.mode === 'tt' ? '' : `<div class="item-slot" data-f="item" title="Objet"><span class="slot-ico" data-f="itemIco"></span>${hint.device === 'touch' ? '' : `<kbd data-f="itemKey">${hint.item}</kbd>`}</div>`}
             <div class="status-row" data-f="status"></div>
             <div class="gauge" data-f="gauge">
                 <svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="gauge-grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22c55e"/><stop offset="1" stop-color="#ff8c1a"/></linearGradient></defs><circle class="bg" cx="50" cy="50" r="40"></circle><circle class="fg" data-f="arc" cx="50" cy="50" r="40"></circle></svg>
@@ -732,7 +758,10 @@ export class UI {
                 slot.classList.add('full');
                 slot.title = ITEMS[item].name;
                 ico.innerHTML = ICONS[item];
-                this.toast(index, `${ITEMS[item].name} : appuie sur ${this.huds.length > 1 && index ? 'L' : 'E'}`, 'info');
+                // La bonne touche selon l'appareil : clavier, manette ou écran tactile (pas de touche E sur un téléphone)
+                const hint = this.input.hint(index);
+                if (hud.f.itemKey) setText(hud.f.itemKey, hint.item);
+                this.toast(index, `${ITEMS[item].name} : ${hint.device === 'touch' ? 'touche le bouton ★' : `appuie sur ${hint.item}`}`, 'info');
             }
         }, 55);
     }
@@ -858,24 +887,18 @@ export class UI {
         setText($('results-title'), title);
         setText($('results-sub'), sub);
 
-        const rows = res.ranking.map((r, i) => `<tr class="${r.human ? 'me' : ''}" style="--i:${i}"><td class="rk">${i + 1}</td><td class="who">${r.portrait ? `<img src="${r.portrait}" alt="">` : ''}<span>${r.name}${r.human && res.players.length === 1 ? ' <em>(toi)</em>' : ''}</span></td><td>${VEHICLES[r.vehicle].name}</td><td>${r.finished ? formatTime(r.time) : `à ${Math.round(r.gap)} m`}</td></tr>`).join('');
-        const table = res.ranking.length > 1 ? `<table class="res-table">${rows}</table>` : '';
-
-        const stats = res.players.map(p => {
-            const lines = [];
-            const stat = (a, b) => lines.push(`<div class="stat-row" style="--i:${lines.length}"><span>${a}</span><span>${b}</span></div>`);
-            if (res.players.length > 1) lines.push(`<div class="stat-row"><b>${p.name}</b><span></span></div>`);
-            stat('Temps', formatTime(p.time));
-            if (p.lapTimes.length > 1) stat('Meilleur tour', formatTime(p.bestLap));
-            if (p.lapTimes.length > 1) stat('Tours', p.lapTimes.map(formatTime).join(' · '));
-            stat('Vitesse max', `${Math.round(p.topSpeed * MS_TO_KMH)} km/h`);
-            stat('Boosts de drift', p.stats.driftBoosts);
-            stat('Objets lancés', p.stats.items);
-            stat('Adversaires touchés', p.stats.hits);
-            stat('Chocs', p.stats.impacts);
-            if (p.score != null) stat('Score', `${p.score}${p.recordScore != null ? ` (record ${p.recordScore})` : ''}`);
-            if (p.record != null) stat('Record', formatTime(p.record));
-            return lines.join('');
+        // Un seul tableau, avec toutes les informations de chaque pilote
+        const multi = res.laps > 1;
+        const head = `<tr><th></th><th>Pilote</th><th>Véhicule</th><th>Temps</th>${multi ? '<th>Meilleur tour</th>' : ''}<th>Vitesse max</th><th title="Boosts de drift">Boosts</th><th title="Objets lancés">Objets</th><th title="Adversaires touchés">Touchés</th><th>Chocs</th></tr>`;
+        const rows = res.ranking.map((r, i) => `<tr class="${r.human ? 'me' : ''}" style="--i:${i}"><td class="rk">${i + 1}</td><td class="who">${r.portrait ? `<img src="${r.portrait}" alt="">` : ''}<span>${r.name}${r.human && res.players.length === 1 ? ' <em>(toi)</em>' : ''}</span></td><td>${VEHICLES[r.vehicle].name}</td><td>${r.finished ? formatTime(r.time) : `à ${Math.round(r.gap)} m`}</td>${multi ? `<td>${formatTime(r.bestLap)}</td>` : ''}<td>${Math.round(r.topSpeed * MS_TO_KMH)} km/h</td><td>${r.stats.driftBoosts}</td><td>${r.stats.items}</td><td>${r.stats.hits}</td><td>${r.stats.impacts}</td></tr>`).join('');
+        const table = `<div class="res-scroll"><table class="res-table">${head}${rows}</table></div>`;
+        // Sous le tableau : ce qui ne concerne que le joueur (ses tours, son record, son score)
+        const extra = res.players.map(p => {
+            const bits = [];
+            if (p.lapTimes.length > 1) bits.push(`Tours : ${p.lapTimes.map(formatTime).join(' · ')}`);
+            if (p.record != null) bits.push(`Record : ${formatTime(p.record)}`);
+            if (p.score != null) bits.push(`Score : ${p.score}${p.recordScore != null ? ` (record ${p.recordScore})` : ''}`);
+            return bits.length ? `<p class="res-extra">${res.players.length > 1 ? `<b>${p.name}</b> · ` : ''}${bits.join(' &nbsp;|&nbsp; ')}</p>` : '';
         }).join('');
 
         let banner = '';
@@ -887,7 +910,7 @@ export class UI {
         for (const u of res.unlocked) banner += `<div class="unlock">🔓 Débloqué : ${u}</div>`;
 
         const cupHtml = cup ? cupTable(cup, res) : '';
-        $('results-body').innerHTML = `${banner}${cupHtml}<div class="res-grid"><div>${table}</div><div>${stats}</div></div>`;
+        $('results-body').innerHTML = `${banner}${cupHtml}${table}${extra}`;
         setText($('results-next'), cup ? (cup.done ? '🏆 Fin de la coupe' : '▶ Course suivante') : '🔁 Rejouer');
         $('results-overlay').hidden = false;
         $('results-next').focus();

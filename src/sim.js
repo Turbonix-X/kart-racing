@@ -18,7 +18,7 @@ const PICKUP_HEIGHT = 3.4;
 export const ITEMS = {
     turbo:   { name: 'Turbo',          desc: 'Une grosse poussée vers l\'avant',            front: 1, back: 5 },
     shield:  { name: 'Bouclier',       desc: '6 s protégé de tout, et tu bouscules',         front: 4, back: 2 },
-    oil:     { name: 'Flaque d\'huile', desc: 'Posée derrière toi : fait déraper une fois',   front: 5, back: 1 },
+    oil:     { name: 'Bouteille d\'huile', desc: 'Jetée derrière toi : la flaque fait déraper', front: 5, back: 1 },
     missile: { name: 'Missile',        desc: 'Fonce sur la voiture juste devant',            front: 1, back: 4 },
     bomb:    { name: 'Bombe',          desc: 'Lancée devant, elle explose en zone',          front: 3, back: 3 },
     zap:     { name: 'Éclair',         desc: 'Ralentit tous ceux qui sont devant toi',       front: 0, back: 3 },
@@ -338,11 +338,8 @@ export class RaceSim {
             case 'turbo': giveBoost(v, 1.8 * k); break;
             case 'shield': v.shield = 6 * k; break;
             case 'oil':
-                this.oils.push({ x: v.x - sinH * 5, z: v.z - cosH * 5, r: 3.2, age: 0, owner: car });
-                if (this.oils.length > 24) {
-                    const i = this.oils.findIndex(o => o.age >= 0);
-                    if (i >= 0) this.oils.splice(i, 1);
-                }
+                // Une bouteille d'huile lancée derrière soi : elle se brise au sol et laisse une flaque
+                this.projectiles.push({ kind: 'bottle', owner: car, x: v.x - sinH * 2.2, z: v.z - cosH * 2.2, y: 1.2 + v.y, vx: -sinH * 9, vz: -cosH * 9, vy: 5.5, life: 3, id: Math.random() });
                 break;
             case 'missile': {
                 const target = this.carAhead(car);
@@ -441,6 +438,22 @@ export class RaceSim {
                         if (c !== p.owner && d2 < 100) { if (this.hit(c, p.owner, 'bomb')) { c.v.vy = 7; c.v.y = 0.01; } }
                     }
                     this.emit('explode', null, { x: p.x, z: p.z });
+                }
+            } else if (p.kind === 'bottle') {
+                p.vy -= 26 * dt;
+                p.x += p.vx * dt; p.z += p.vz * dt; p.y += p.vy * dt;
+                if (p.y <= 0.15) {
+                    dead = true;
+                    // La flaque reste toujours sur la zone de course
+                    const q = t.locate(p.x, p.z, -1, {}), max = Math.max(0, q.limit - 3.4);
+                    let x = p.x, z = p.z;
+                    if (q.d > max) { const f = max / q.d; x = q.px + (p.x - q.px) * f; z = q.pz + (p.z - q.pz) * f; }
+                    this.oils.push({ x, z, r: 3.2, age: 0, owner: p.owner });
+                    if (this.oils.length > 24) {
+                        const k = this.oils.findIndex(o => o.age >= 0);
+                        if (k >= 0) this.oils.splice(k, 1);
+                    }
+                    this.emit('splash', p.owner, { x, z });
                 }
             } else if (p.kind === 'tornado') {
                 // Remonte la piste à grande vitesse

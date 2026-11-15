@@ -1,6 +1,6 @@
 # 🏎️ TurboKart
 
-**Alpha 1.5** · Jeu de course en 3D dans le navigateur, par Turbonix Entertainment : 10 pilotes avec leur talent, 4 à 8 pilotes par course, 10 circuits, 8 biomes (dont une montagne en relief), 7 véhicules, 3 types de roues, 10 objets, saut synchro et drift, coupe, contre-la-montre avec fantôme et écran partagé.
+**Alpha 1.6** · Jeu de course en 3D dans le navigateur, par Turbonix Entertainment : 10 pilotes avec leur talent, 4 à 8 pilotes par course, 10 circuits, 8 biomes (dont une montagne en relief), 7 véhicules, 3 types de roues, 10 objets, saut synchro et drift, coupe, contre-la-montre avec fantôme et écran partagé.
 
 En ligne : <https://turbonix-x.github.io/kart-racing/> (anciennement Kart Racing).
 

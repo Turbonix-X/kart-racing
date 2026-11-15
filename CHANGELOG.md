@@ -2,6 +2,33 @@
 
 Chaque mise à jour de TurboKart (anciennement Kart Racing) est notée ici, de la plus récente à la plus ancienne. Ce journal s'affiche aussi dans le jeu, bouton **Nouveautés** de l'écran titre.
 
+## Alpha 1.6 — 15 novembre 2026
+
+### Manettes et 2 joueurs
+- **Manettes** : pilotage complet (gâchettes, stick, croix, objets, grand saut), zone morte et courbe douce du stick, vibration dans les chocs, et navigation dans les menus (A valide, B retour, Start pause).
+- **2 joueurs au choix** : clavier + clavier, clavier + manette, manette + clavier ou deux manettes. Le jeu propose le bon réglage selon les manettes branchées.
+- **Maintiens R pour regarder derrière toi** (ou tire le stick droit vers toi). Un appui court te replace toujours sur la piste.
+
+### Pilotes (10, refaits)
+- Nouveaux pilotes : **Bougadi Bougida** (villageois chauve au front immense et mono-sourcil, tunique toute marron), **Bob** (le robot de Pâtisserie 2D Simulator, qui flotte au-dessus du siège), **Mamie Endettée**, **Emmène-moi avec toi** (le dinosaure en peluche vert), **Ninjacon**, **Doc Zinzin** (le scientifique fou), puis Lina, Nova, **Capitaine Corail** et Sven.
+- Modèles 3D beaucoup plus détaillés et réalistes : crâne et mâchoire, yeux avec iris, pupille et paupières, nez, lèvres, oreilles, cou, mains à doigts, jambes et chaussures, tenues complètes.
+
+### Monde
+- **Arbres détaillés** : chênes, bouleaux, sapins enneigés, géants de la jungle à contreforts et lianes, buissons, avec leur ombre au sol.
+- **Ville de nuit** : 7 types d'immeubles (tours à gradins, tour ronde, gratte-ciel ceinturé, entrepôt…), tailles et teintes variées, étages allumés ou éteints.
+- **Public** refait : jambes, buste, bras levés, cheveux, casquettes, écharpes et drapeaux. Il se tient sur les gradins, sans les traverser (corrige la collision en montagne).
+- **Boosts en montagne** : les plaques épousent la pente et ne s'enfoncent plus dans le sol.
+- **Flaques d'eau** plus visibles dans la ville de nuit.
+- **Bouteille d'huile** : l'objet lance maintenant une vraie bouteille derrière toi, qui se brise et laisse la flaque.
+
+### Interface
+- **Étiquette « Alpha 1.6 » encadrée** à côté du logo : un clic ouvre le journal de toutes les versions.
+- **Résultats** : un seul tableau avec toutes les informations de chaque pilote.
+- **Mobile** : le message d'objet indique le bouton ★ (plus de « touche E »), et les boutons de déplacement sont plus grands.
+
+### Performances
+- Définition d'affichage adaptative (elle baisse si ça saccade), ombres recalculées une image sur deux, flou du HUD supprimé, ombres des arbres et du public remplacées par des ombres au sol.
+
 ## Alpha 1.5 — 13 novembre 2026
 
 Le jeu s'appelle désormais **TurboKart**.

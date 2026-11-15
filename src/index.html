@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#0d0c12">
-    <title>TurboKart — Alpha 1.5</title>
+    <title>TurboKart — Alpha 1.6</title>
     <link rel="icon" href="./logo.svg" type="image/svg+xml">
     <!-- Polices du jeu (en ligne) ; hors ligne, Outfit prend le relais -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -29,8 +29,8 @@
     <!-- =================== CHARGEMENT =================== -->
     <div id="loading" role="status" aria-live="polite">
         <div class="load-inner">
-            <div class="load-title">Turbo<span>Kart</span></div>
-            <div id="load-sub" class="load-sub">Alpha 1.5</div>
+            <div class="load-title">Turbo<span>Kart</span> <button id="load-version" class="version-badge" type="button" title="Voir les nouveautés"></button></div>
+            <div id="load-sub" class="load-sub">Alpha 1.6</div>
             <div class="load-track">
                 <div class="load-road"></div>
                 <div id="load-car" class="load-car" aria-hidden="true">
@@ -58,8 +58,11 @@
             </div>
         </div>
         <div class="title-main">
-            <h1 class="game-logo"><span class="l1">TURBO</span><span class="l2">KART</span></h1>
-            <p class="title-version"><span id="title-version"></span> · <span id="title-tagline">10 pilotes, 10 circuits, 8 biomes</span></p>
+            <div class="logo-row">
+                <h1 class="game-logo"><span class="l1">TURBO</span><span class="l2">KART</span></h1>
+                <button id="title-version" class="version-badge big" type="button" title="Voir les nouveautés de toutes les versions"></button>
+            </div>
+            <p class="title-version"><span id="title-tagline">10 pilotes, 10 circuits, 8 biomes, manettes et 2 joueurs</span></p>
             <nav class="title-menu" aria-label="Menu principal">
                 <button id="t-play" class="btn btn-primary">▶ Jouer</button>
                 <button id="t-news" class="btn title-btn"><span data-icon="news"></span>Nouveautés</button>
@@ -81,7 +84,8 @@
             <div class="header-inner">
                 <div class="header-left">
                     <button id="btn-home" class="hbtn" title="Accueil" aria-label="Retour à l'accueil"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
-                    <h1 class="site-title">Turbo<span>Kart</span> <small id="version" class="version-tag"></small></h1>
+                    <h1 class="site-title">Turbo<span>Kart</span></h1>
+                    <button id="version" class="version-badge" type="button" title="Voir les nouveautés de toutes les versions"></button>
                 </div>
                 <div class="header-right">
                     <span id="points-display" class="points-pill" title="Points de médailles"></span>
@@ -121,7 +125,8 @@
                 <div class="actions start-actions">
                     <button id="start-btn" class="btn btn-primary">🏁 Lance la course !</button>
                 </div>
-                <p class="hint">Astuce : <kbd>Maj</kbd> pour un saut synchro, maintiens-le en tournant pour drifter · <kbd>E</kbd> lance un objet</p>
+                <p class="hint">Astuce : <kbd>Maj</kbd> pour un saut synchro, maintiens-le en tournant pour drifter · <kbd>E</kbd> lance un objet · maintiens <kbd>R</kbd> pour regarder derrière</p>
+                <p id="pad-solo" class="hint pad-solo"></p>
             </section>
 
             <section class="card full pilot-card">
@@ -159,7 +164,9 @@
                         <label class="field">Pilote <select id="p2-character" class="select"></select></label>
                         <label class="field">Véhicule <select id="p2-vehicle" class="select"></select></label>
                         <label class="field">Couleur <select id="p2-color" class="select"></select></label>
+                        <label class="field wide-field">Commandes <select id="duel-controls" class="select"></select></label>
                     </div>
+                    <p id="pad-status" class="muted small"></p>
                 </div>
             </section>
 
@@ -286,7 +293,8 @@
                         <tr><td>Drift</td><td>garde <kbd>Maj</kbd> en tournant</td></tr>
                         <tr><td>Lancer un objet</td><td><kbd>E</kbd></td></tr>
                         <tr><td>Grand saut (Monster Truck)</td><td><kbd>Espace</kbd></td></tr>
-                        <tr><td>Retour sur la piste</td><td><kbd>R</kbd></td></tr>
+                        <tr><td>Retour sur la piste</td><td>appui court sur <kbd>R</kbd></td></tr>
+                        <tr><td>Regarder derrière</td><td>maintiens <kbd>R</kbd></td></tr>
                         <tr><td>Changer de caméra</td><td><kbd>C</kbd></td></tr>
                         <tr><td>Pause / Son</td><td><kbd>Échap</kbd> / <kbd>M</kbd></td></tr>
                     </table>
@@ -294,11 +302,20 @@
                 <div>
                     <h3>👥 2 joueurs</h3>
                     <table class="keys">
-                        <tr><td>J1</td><td><kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd>, <kbd>Maj G</kbd> saut et drift, <kbd>E</kbd> objet, <kbd>Espace</kbd> grand saut, <kbd>R</kbd> retour</td></tr>
-                        <tr><td>J2</td><td><kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd>, <kbd>Maj D</kbd> saut et drift, <kbd>L</kbd> objet, <kbd>Entrée</kbd> grand saut, <kbd>K</kbd> retour</td></tr>
+                        <tr><td>J1</td><td><kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd>, <kbd>Maj G</kbd> saut et drift, <kbd>E</kbd> objet, <kbd>Espace</kbd> grand saut, <kbd>R</kbd> retour ou vue arrière</td></tr>
+                        <tr><td>J2</td><td><kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd>, <kbd>Maj D</kbd> saut et drift, <kbd>L</kbd> objet, <kbd>Entrée</kbd> grand saut, <kbd>K</kbd> retour ou vue arrière</td></tr>
                     </table>
+                    <p class="muted small">Au choix dans le menu : clavier + clavier, clavier + manette, ou deux manettes. Avec une manette, l'autre joueur garde tout le clavier.</p>
                     <h3>🎮 Manette</h3>
-                    <p class="muted small">Gâchette droite ou A : accélérer. Gâchette gauche ou B : freiner. Stick : tourner. Bumper : saut synchro et drift. X : objet. Y : grand saut. Start : pause.</p>
+                    <table class="keys">
+                        <tr><td>Accélérer / freiner</td><td>gâchette droite ou <kbd>A</kbd> / gâchette gauche ou <kbd>B</kbd></td></tr>
+                        <tr><td>Tourner</td><td>stick gauche ou croix</td></tr>
+                        <tr><td>Saut synchro et drift</td><td><kbd>LB</kbd> ou <kbd>RB</kbd></td></tr>
+                        <tr><td>Objet / grand saut</td><td><kbd>X</kbd> / <kbd>Y</kbd></td></tr>
+                        <tr><td>Regarder derrière</td><td>stick droit vers toi (ou clic)</td></tr>
+                        <tr><td>Retour sur la piste</td><td><kbd>Select</kbd></td></tr>
+                        <tr><td>Pause, valider, retour</td><td><kbd>Start</kbd>, <kbd>A</kbd>, <kbd>B</kbd></td></tr>
+                    </table>
                     <h3>💡 Astuces</h3>
                     <p class="muted small">Le saut synchro passe par-dessus les flaques. Une flaque ne fait glisser qu'une fois : tant que tu restes dedans, tu ne repars pas en tête-à-queue. Garde le drift dans un virage : la fumée passe au vert puis à l'orange, relâche pour un boost. En montagne, prends de l'élan dans les descentes.</p>
                 </div>

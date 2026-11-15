@@ -28,7 +28,10 @@ export class Game {
         this.timeScale = 1;
 
         this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        // Résolution adaptative : si l'image saccade, on baisse la définition (et on la remonte si ça redevient fluide)
+        this.maxRatio = Math.min(window.devicePixelRatio || 1, window.matchMedia?.('(pointer: coarse)').matches ? 1.25 : 1.5);
+        this.ratio = this.maxRatio; this.perfAcc = 0; this.perfN = 0; this.shadowTick = 0;
+        this.renderer.setPixelRatio(this.ratio);
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -99,7 +102,7 @@ export class Game {
     async startRace(cfg, onProgress) {
         await this.build(cfg, onProgress);
         const n = cfg.players.length;
-        this.input.twoPlayers = n === 2;
+        this.input.setup(n, cfg.controls);
         this.input.active = true;
         document.activeElement?.blur?.();
 
@@ -269,7 +272,10 @@ export class Game {
         const sim = this.sim;
         this.savePrev();
         const inputs = [];
-        for (const c of this.humans) inputs[c.playerIndex] = this.input.read(c.playerIndex);
+        for (const c of this.humans) {
+            const inp = inputs[c.playerIndex] = this.input.read(c.playerIndex);
+            c.rear = inp.rear && !c.finished;      // R maintenu : on regarde derrière
+        }
         sim.step(FIXED_DT, inputs);
         this.tick++;
         this.processEvents();
@@ -336,7 +342,7 @@ export class Game {
                     if (me) { a.boost(); ui.toast(car.playerIndex, e.tier === 2 ? 'Super boost !' : 'Boost !', 'boost'); }
                     break;
                 case 'crash': case 'bump':
-                    if (me) { a.crash(e.power); car.view.shake = Math.min(0.9, car.view.shake + e.power * 0.03); }
+                    if (me) { a.crash(e.power); car.view.shake = Math.min(0.9, car.view.shake + e.power * 0.03); this.input.rumble(car.playerIndex, e.power * 0.05); }
                     this.effects.sparks(car.v.x, car.g + 0.7, car.v.z, Math.min(16, 4 + Math.floor(e.power)));
                     break;
                 case 'pickup':
@@ -357,7 +363,7 @@ export class Game {
                     }
                     break;
                 case 'hit':
-                    if (me) { a.spin(); car.view.shake = 0.7; ui.toast(car.playerIndex, e.by ? `Touché par ${e.by.name} !` : 'Touché !', 'bad', e.by?.portrait); }
+                    if (me) { a.spin(); car.view.shake = 0.7; this.input.rumble(car.playerIndex, 0.9, 320); ui.toast(car.playerIndex, e.by ? `Touché par ${e.by.name} !` : 'Touché !', 'bad', e.by?.portrait); }
                     if (e.by?.human) ui.toast(e.by.playerIndex, `Bien visé : ${car.name} !`, 'good', car.portrait);
                     break;
                 case 'zapped': if (me) { a.spin(); ui.toast(car.playerIndex, `Foudroyé par ${e.by?.name ?? '?'} !`, 'bad', e.by?.portrait); } break;
@@ -373,7 +379,8 @@ export class Game {
                 case 'cone': if (me) a.land(); break;
                 case 'spin': if (me) { a.spin(); ui.toast(car.playerIndex, e.water ? 'Aquaplaning !' : 'Glissade !', 'bad'); } break;
                 case 'jump': case 'ramp': case 'hop': if (me) a.jump(); break;
-                case 'land': if (me) { a.land(); car.view.shake = Math.min(0.5, car.view.shake + e.power * 0.02); } break;
+                case 'land': if (me) { a.land(); car.view.shake = Math.min(0.5, car.view.shake + e.power * 0.02); this.input.rumble(car.playerIndex, 0.3, 100); } break;
+                case 'splash': if (me) a.land(); break;
                 case 'respawn':
                     if (me) ui.toast(car.playerIndex, 'Retour sur la piste', 'info');
                     car.markL.active = false; car.markR.active = false;
@@ -457,7 +464,9 @@ export class Game {
         let fx = 0, fy = 0, fz = 0;
         for (const c of focus) { fx += c.model.root.position.x; fy += c.renderG ?? 0; fz += c.model.root.position.z; }
         this.world.followShadow(fx / focus.length, fy / focus.length, fz / focus.length);
-        this.renderer.shadowMap.needsUpdate = true;
+        // Les ombres ne sont recalculées qu'une image sur deux : on ne voit pas la différence, le gain est net
+        if ((this.shadowTick++ & 1) === 0) this.renderer.shadowMap.needsUpdate = true;
+        this.adaptResolution(dt);
 
         const H = this.renderer.domElement.clientHeight;
         for (const view of views) {
@@ -635,6 +644,9 @@ export class Game {
             const n = Math.hypot(bx, bz) || 1; bx /= n; bz /= n;
         }
 
+        // Vue arrière : la caméra passe devant la voiture et regarde derrière
+        if (car.rear) { bx = -bx; bz = -bz; }
+        if (!!car.rear !== !!view.wasRear) { view.snapped = false; view.wasRear = !!car.rear; }
         let dist, height, lookAhead, lookY;
         if (mode === 'hood') {
             dist = -0.6; height = 1.15 + (v.type === 'truck' ? 1.2 : 0); lookAhead = 20; lookY = 0.9;
@@ -676,6 +688,19 @@ export class Game {
         }
         view.shake *= Math.exp(-dt * 6);
         cam.lookAt(view.look);
+    }
+
+    /** Mesure le temps d'image sur une seconde et ajuste la définition de l'écran. */
+    adaptResolution(dt) {
+        if (!(dt > 0)) return;
+        this.perfAcc += dt; this.perfN++;
+        if (this.perfAcc < 1) return;
+        const avg = this.perfAcc / this.perfN;
+        this.perfAcc = 0; this.perfN = 0;
+        let r = this.ratio;
+        if (avg > 0.024) r = Math.max(0.6, r - 0.15);
+        else if (avg < 0.0165 && r < this.maxRatio) r = Math.min(this.maxRatio, r + 0.1);
+        if (Math.abs(r - this.ratio) > 1e-3) { this.ratio = r; this.renderer.setPixelRatio(r); this.renderer.setSize(window.innerWidth, window.innerHeight); if (this.humans?.length) this.onResizeViews?.(); }
     }
 
     onResize() {
@@ -725,7 +750,8 @@ export class Game {
         }
 
         out.ranking = sim.order.map(c => ({
-            name: c.name, vehicle: c.v.type, human: c.human, character: c.character, skin: c.skin, portrait: c.portrait, finished: c.finished, time: c.finishTime,
+            name: c.name, vehicle: c.v.type, human: c.human, character: c.character, skin: c.skin, portrait: c.portrait,
+            bestLap: c.lapTimes.length ? Math.min(...c.lapTimes) : null, topSpeed: c.stats.topSpeed, stats: { ...c.stats }, finished: c.finished, time: c.finishTime,
             gap: c.finished ? 0 : Math.max(0, sim.totalLen - c.maxDist),
         }));
         out.mode = cfg.mode;

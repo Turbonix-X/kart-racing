@@ -151,8 +151,8 @@ export class Preview {
         const m = buildCharacterModel(id, skin);
         m.root.rotation.y = -0.38;
         this.prScene.add(m.root);
-        this.prCam.position.set(0.6, 0.92, 2.25);
-        this.prCam.lookAt(0, 0.6, 0);
+        this.prCam.position.set(0.5, 0.86, 1.95);
+        this.prCam.lookAt(0, 0.6, 0.02);
         this.pr.render(this.prScene, this.prCam);
         const url = this.pr.domElement.toDataURL('image/png');
         this.prScene.remove(m.root);

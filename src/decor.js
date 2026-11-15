@@ -90,28 +90,21 @@ function buildHills(t, b, rng, root, elev) {
 
 // ---------- Plaine ----------
 function plaine(t, rng, root, life) {
-    const trunk = instanced(root, new THREE.CylinderGeometry(0.35, 0.55, 4, 6), std(0x6b4a2b), 260);
-    const leaves = instanced(root, new THREE.IcosahedronGeometry(3.6, 1), flat(0xffffff), 260);
-    const r2 = mulberry32(17);
-    const n = scatter(t, r2, 260, { margin: 5, extent: 200 }, (x, z, i) => {
-        const s = 0.8 + r2() * 0.9;
-        place(trunk, i, x, 2 * s, z, s, r2() * 6);
-        place(leaves, i, x, 6.2 * s, z, s, r2() * 6, s, s * (0.85 + r2() * 0.3), s);
-        C.setHSL(0.27 + r2() * 0.07, 0.5 + r2() * 0.2, 0.32 + r2() * 0.1); leaves.setColorAt(i, C);
-    });
-    trunk.count = leaves.count = n;
+    // Chênes, bouleaux et érables : trois silhouettes, des teintes qui varient
+    forest(t, mulberry32(17), root, [
+        leafyTree(1, { hue: 0.29, light: 0.36 }), leafyTree(2, { hue: 0.33, light: 0.32, tall: 1.2 }), leafyTree(3, { hue: 0.25, sat: 0.6, light: 0.4, tall: 0.9, bark: 0xc9c2b4 }),
+    ], 240, { margin: 5, extent: 200 });
 
-    const bushes = instanced(root, new THREE.IcosahedronGeometry(1.3, 0), flat(0x3f8f37), 220);
-    bushes.count = scatter(t, rng, 220, { margin: 2, extent: 140, outsideBarrier: false }, (x, z, i) => {
-        const s = 0.6 + rng() * 0.9; place(bushes, i, x, 0.5 * s, z, s, rng() * 6, s * 1.3, s * 0.8, s);
-        C.setHSL(0.28 + rng() * 0.06, 0.55, 0.3 + rng() * 0.1); bushes.setColorAt(i, C);
+    const bushes = instanced(root, bushGeometry(5), vc({ flatShading: true }), 200, false);
+    bushes.count = scatter(t, rng, 200, { margin: 2, extent: 140, outsideBarrier: false }, (x, z, i) => {
+        const s = 0.6 + rng() * 0.8; place(bushes, i, x, 0, z, s, rng() * 6);
     });
 
     // Bottes de foin et clôtures
     const hay = instanced(root, new THREE.CylinderGeometry(0.9, 0.9, 1.4, 14).rotateZ(Math.PI / 2), std(0xe2c15b), 50);
     hay.count = scatter(t, rng, 50, { margin: 6, extent: 120 }, (x, z, i) => place(hay, i, x, 0.9, z, 1, rng() * 6));
-    const fence = instanced(root, new THREE.BoxGeometry(0.18, 1.2, 0.18), std(0x8a6a44), 400);
-    const rail = instanced(root, new THREE.BoxGeometry(0.1, 0.12, 3.1), std(0x9a7a50), 400);
+    const fence = instanced(root, new THREE.BoxGeometry(0.18, 1.2, 0.18), std(0x8a6a44), 400, false);
+    const rail = instanced(root, new THREE.BoxGeometry(0.1, 0.12, 3.1), std(0x9a7a50), 400, false);
     let k = 0;
     for (let i = 0; i < t.n && k < 400; i += 3) {
         const lim = t.w[i] + t.runoff + 6;
@@ -181,17 +174,7 @@ function plaine(t, rng, root, life) {
 
 // ---------- Glace ----------
 function glace(t, rng, root, life) {
-    const N = 420;
-    const trunk = instanced(root, new THREE.CylinderGeometry(0.3, 0.45, 3, 6), std(0x5a3d25), N);
-    const pine = instanced(root, new THREE.ConeGeometry(3, 9, 7), flat(0x1e4d33), N);
-    const snow = instanced(root, new THREE.ConeGeometry(1.8, 4, 7), flat(0xffffff), N);
-    const n = scatter(t, rng, N, { margin: 5, extent: 200 }, (x, z, i) => {
-        const s = 0.8 + rng() * 0.9, r = rng() * 6;
-        place(trunk, i, x, 1.5 * s, z, s, r);
-        place(pine, i, x, 7 * s, z, s, r);
-        place(snow, i, x, 10 * s, z, s, r);
-    });
-    trunk.count = pine.count = snow.count = n;
+    forest(t, rng, root, [pineTree(1, { snow: 0.9 }), pineTree(2, { snow: 0.6, tiers: 6 }), pineTree(3, { snow: 1, tiers: 4 })], 380, { margin: 5, extent: 200 }, { shadow: 2.6 });
 
     // Cristaux de glace
     const crystal = instanced(root, new THREE.OctahedronGeometry(1.2, 0), new THREE.MeshPhysicalMaterial({ color: 0x9fe3ff, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.8, clearcoat: 1 }), 120);
@@ -242,16 +225,7 @@ function glace(t, rng, root, life) {
 
 // ---------- Jungle ----------
 function jungle(t, rng, root, life) {
-    const N = 300;
-    const trunk = instanced(root, new THREE.CylinderGeometry(0.8, 1.3, 14, 7), std(0x5b4128), N);
-    const canopy = instanced(root, new THREE.IcosahedronGeometry(6, 1), flat(0xffffff), N);
-    const n = scatter(t, rng, N, { margin: 6, extent: 200 }, (x, z, i) => {
-        const s = 0.7 + rng() * 0.8;
-        place(trunk, i, x, 7 * s, z, s, rng() * 6);
-        place(canopy, i, x, 15 * s, z, s, rng() * 6, s * 1.3, s * 0.75, s * 1.3);
-        C.setHSL(0.3 + rng() * 0.05, 0.6, 0.18 + rng() * 0.1); canopy.setColorAt(i, C);
-    });
-    trunk.count = canopy.count = n;
+    forest(t, rng, root, [jungleTree(1), jungleTree(2), jungleTree(3)], 260, { margin: 6, extent: 200 }, { scale: [0.7, 1.4], shadow: 6 });
     // Fougères et grandes feuilles
     const fern = instanced(root, new THREE.ConeGeometry(1.6, 2.2, 5, 1, true), flat(0x2f9a3a, { side: THREE.DoubleSide }), 500, false);
     fern.count = scatter(t, rng, 500, { margin: 1, extent: 130, outsideBarrier: false }, (x, z, i) => {
@@ -426,9 +400,9 @@ function mergeColored(parts) {
     for (const [g0, hex] of parts) {
         const g = g0.index ? g0.toNonIndexed() : g0;
         if (!g.attributes.normal) g.computeVertexNormals();
-        c.setHex(hex);
         pos.push(...g.attributes.position.array); nor.push(...g.attributes.normal.array);
-        for (let i = 0; i < g.attributes.position.count; i++) col.push(c.r, c.g, c.b);
+        if (hex == null && g.attributes.color) col.push(...g.attributes.color.array);
+        else { c.setHex(hex ?? 0xffffff); for (let i = 0; i < g.attributes.position.count; i++) col.push(c.r, c.g, c.b); }
     }
     const out = new THREE.BufferGeometry();
     out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -465,11 +439,185 @@ function palmGeometry(bend = 0.18) {
     return mergeColored(parts);
 }
 function palms(t, rng, root, count, opts, E = null) {
-    const mesh = instanced(root, palmGeometry(), vc({ side: THREE.DoubleSide }), count);
+    const mesh = instanced(root, palmGeometry(), vc({ side: THREE.DoubleSide }), count, false);
+    const shadows = [];
     mesh.count = scatter(t, rng, count, opts, (x, z, i) => {
+        shadows.push([x, 0.25, z, 4]);
         place(mesh, i, x, E ? E.terrainAt(x, z) : 0, z, 0.85 + rng() * 0.5, rng() * 6, undefined, undefined, undefined, (rng() - 0.5) * 0.15, (rng() - 0.5) * 0.15);
     });
+    groundShadows(root, shadows);
     return mesh;
+}
+
+
+// ---------- Arbres détaillés (Alpha 1.6) ----------
+/** Masse bosselée (feuillage, buisson) : icosaèdre déformé, couleurs par sommet. */
+function blob(seed, colorFn, { detail = 1, amp = 0.5, squash = 1 } = {}) {
+    const g = new THREE.IcosahedronGeometry(1, detail).toNonIndexed();
+    const p = g.attributes.position, disp = new Map();
+    for (let i = 0; i < p.count; i++) {
+        const x = p.getX(i), y = p.getY(i), z = p.getZ(i), k = `${x.toFixed(3)},${y.toFixed(3)},${z.toFixed(3)}`;
+        if (!disp.has(k)) disp.set(k, 1 - amp / 2 + fbm(x * 1.9 + seed, z * 1.9 + y * 1.4 + seed * 0.7) * amp);
+        const s = disp.get(k);
+        p.setXYZ(i, x * s, y * s * squash, z * s);
+    }
+    g.computeVertexNormals();
+    const col = new Float32Array(p.count * 3), c = new THREE.Color(), n = g.attributes.normal;
+    for (let i = 0; i < p.count; i++) {
+        colorFn(c, n.getY(i), p.getY(i), fbm(p.getX(i) * 2.5 + seed, p.getZ(i) * 2.5 + seed));
+        col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    return g;
+}
+/** Feuillage : clair au soleil (dessus), sombre en dessous. */
+const leafColor = (h, s, l) => (c, ny, y, n) => c.setHSL(h + (n - 0.5) * 0.05, s, l * (0.62 + Math.max(0, ny) * 0.5 + n * 0.22));
+
+/** Branche ou tronc entre deux points, effilé. */
+function branch(a, b, r1, r2, seg = 6) {
+    const dir = new THREE.Vector3(b[0] - a[0], b[1] - a[1], b[2] - a[2]), len = dir.length();
+    const g = new THREE.CylinderGeometry(r2, r1, len, seg, 1);
+    g.applyMatrix4(new THREE.Matrix4().compose(new THREE.Vector3((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2), new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize()), new THREE.Vector3(1, 1, 1)));
+    return g;
+}
+
+/** Feuillu : tronc tordu, racines, branches maîtresses et plusieurs masses de feuilles. */
+function leafyTree(seed, { hue = 0.3, sat = 0.55, light = 0.36, tall = 1, bark = 0x6b4a2b } = {}) {
+    const r = mulberry32(seed * 977 + 13), parts = [];
+    const lean = [(r() - 0.5) * 0.6, (r() - 0.5) * 0.6];
+    const top = [lean[0], 4.4 * tall, lean[1]];
+    parts.push([branch([0, 0, 0], [lean[0] * 0.5, 2.3 * tall, lean[1] * 0.5], 0.52, 0.36, 8), bark]);
+    parts.push([branch([lean[0] * 0.5, 2.3 * tall, lean[1] * 0.5], top, 0.36, 0.22, 8), bark]);
+    for (let k = 0; k < 5; k++) {            // racines qui s'étalent
+        const a = k * 1.257 + r();
+        parts.push([branch([Math.cos(a) * 0.3, 0.5, Math.sin(a) * 0.3], [Math.cos(a) * 1.0, -0.1, Math.sin(a) * 1.0], 0.2, 0.07, 5), bark]);
+    }
+    const dark = new THREE.Color(bark).multiplyScalar(0.8).getHex();
+    const n = 5 + Math.floor(r() * 2);
+    for (let k = 0; k < n; k++) {
+        const a = (k / n) * Math.PI * 2 + r() * 0.6, rad = k === 0 ? 0 : 1.5 + r() * 1.1;
+        const c = [top[0] + Math.cos(a) * rad, (k === 0 ? 6.6 : 4.9 + r() * 1.5) * tall, top[2] + Math.sin(a) * rad];
+        const from = [top[0] * (0.6 + r() * 0.4), (2.6 + r() * 1.6) * tall, top[2] * (0.6 + r() * 0.4)];
+        if (k) parts.push([branch(from, [c[0], c[1] - 0.6, c[2]], 0.17, 0.07, 5), dark]);
+        const s = (k === 0 ? 2.5 : 1.7 + r() * 0.8);
+        const g = blob(seed * 31 + k * 7.3, leafColor(hue + (r() - 0.5) * 0.03, sat, light), { detail: 1, amp: 0.55, squash: 0.82 });
+        g.scale(s, s, s).translate(c[0], c[1], c[2]);
+        parts.push([g, null]);
+    }
+    return mergeColored(parts);
+}
+
+/** Conifère : étages de branches dentelées et tombantes ; `snow` blanchit le dessus. */
+function pineTree(seed, { snow = 0, hue = 0.4, tiers = 5 } = {}) {
+    const r = mulberry32(seed * 131 + 7), pos = [], col = [], c = new THREE.Color();
+    const parts = [[branch([0, 0, 0], [0, 3.2, 0], 0.36, 0.2, 7), 0x5a3d25]];
+    const N = 9;
+    for (let k = 0; k < tiers; k++) {
+        const f = k / (tiers - 1), y0 = 1.9 + f * 6.2, rad = 3.3 * (1 - f * 0.72), h = 3.1 - f * 0.9, off = r() * 6.28;
+        const ring = [];
+        for (let j = 0; j < N * 2; j++) {
+            const a = off + (j / (N * 2)) * Math.PI * 2, tip = j % 2 === 0, rr = rad * (tip ? 1 : 0.62) * (0.9 + r() * 0.2);
+            ring.push([Math.cos(a) * rr, y0 - (tip ? 0.55 : 0.05), Math.sin(a) * rr, tip]);
+        }
+        const light = 0.2 + f * 0.08;
+        for (let j = 0; j < ring.length; j++) {
+            const a = ring[j], b2 = ring[(j + 1) % ring.length];
+            // Dessus de l'étage
+            pos.push(0, y0 + h, 0, b2[0], b2[1], b2[2], a[0], a[1], a[2]);
+            for (const v of [null, b2, a]) {
+                const white = snow * (v === null ? 1 : v[3] ? 0.35 : 0.85);
+                c.setHSL(hue, 0.42, light * (v === null ? 1.25 : v[3] ? 0.85 : 1)).lerp(WHITE, Math.min(1, white));
+                col.push(c.r, c.g, c.b);
+            }
+            // Dessous, sombre
+            pos.push(0, y0 + 0.5, 0, a[0], a[1], a[2], b2[0], b2[1], b2[2]);
+            c.setHSL(hue, 0.4, light * 0.5);
+            for (let q = 0; q < 3; q++) col.push(c.r, c.g, c.b);
+        }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    g.computeVertexNormals();
+    parts.push([g, null]);
+    return mergeColored(parts);
+}
+const WHITE = new THREE.Color(0xf4f8fc);
+
+/** Géant de la jungle : contreforts, long tronc, canopée en étages, lianes pendantes. */
+function jungleTree(seed) {
+    const r = mulberry32(seed * 53 + 3), parts = [], bark = 0x5b4128;
+    const lean = [(r() - 0.5) * 1.6, (r() - 0.5) * 1.6];
+    parts.push([branch([0, 0, 0], [lean[0] * 0.4, 7, lean[1] * 0.4], 1.25, 0.85, 9), bark]);
+    parts.push([branch([lean[0] * 0.4, 7, lean[1] * 0.4], [lean[0], 14, lean[1]], 0.85, 0.55, 9), bark]);
+    for (let k = 0; k < 5; k++) {            // contreforts
+        const a = k * 1.257 + r() * 0.5;
+        const fin = new THREE.ConeGeometry(1.5, 4.6, 4).scale(1, 1, 0.16).rotateY(-a).translate(Math.cos(a) * 1.3, 2.1, Math.sin(a) * 1.3);
+        parts.push([fin, 0x4f3822]);
+    }
+    const top = [lean[0], 14, lean[1]];
+    const layers = [[0, 15.5, 6.2], [1, 13.2, 4.6], [2, 17.4, 3.8]];
+    for (const [k, y, s] of layers) {
+        const a = r() * 6.28, rad = k ? 3 + r() * 2 : 0;
+        const cpos = [top[0] + Math.cos(a) * rad, y + r(), top[2] + Math.sin(a) * rad];
+        if (k) parts.push([branch([top[0], 12.5, top[2]], [cpos[0], cpos[1] - 1, cpos[2]], 0.4, 0.16, 6), bark]);
+        const g = blob(seed * 17 + k * 5.1, leafColor(0.31 + r() * 0.04, 0.62, 0.27), { detail: 1, amp: 0.6, squash: 0.5 });
+        g.scale(s, s, s).translate(cpos[0], cpos[1], cpos[2]);
+        parts.push([g, null]);
+        // Lianes
+        for (let l = 0; l < 3; l++) {
+            const la = r() * 6.28, lr = s * (0.5 + r() * 0.4), len = 3 + r() * 5;
+            const x = cpos[0] + Math.cos(la) * lr, z = cpos[2] + Math.sin(la) * lr;
+            parts.push([branch([x, cpos[1] - 0.6, z], [x + (r() - 0.5), cpos[1] - 0.6 - len, z + (r() - 0.5)], 0.06, 0.04, 4), 0x3f7a34]);
+        }
+    }
+    return mergeColored(parts);
+}
+
+/** Buisson : trois masses de feuilles soudées. */
+function bushGeometry(seed, hue = 0.3) {
+    const parts = [];
+    for (let k = 0; k < 3; k++) {
+        const g = blob(seed + k * 3.7, leafColor(hue, 0.55, 0.33), { detail: 0, amp: 0.4, squash: 0.75 });
+        const s = 1 - k * 0.22;
+        g.scale(s, s, s).translate((k - 1) * 0.75, 0.55 * s, (k % 2) * 0.5);
+        parts.push([g, null]);
+    }
+    return mergeColored(parts);
+}
+
+/** Ombres au sol des arbres : un simple disque sombre par arbre, bien moins coûteux qu'une vraie ombre portée. */
+function groundShadows(root, list) {
+    if (!list.length) return;
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = 64;
+    const g = cv.getContext('2d'), grad = g.createRadialGradient(32, 32, 2, 32, 32, 32);
+    grad.addColorStop(0, 'rgba(0,0,0,.6)'); grad.addColorStop(0.6, 'rgba(0,0,0,.34)'); grad.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = grad; g.fillRect(0, 0, 64, 64);
+    const m = new THREE.InstancedMesh(new THREE.PlaneGeometry(2, 2).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false }), list.length);
+    list.forEach(([x, y, z, r], i) => place(m, i, x, y, z, r));
+    m.renderOrder = 1;
+    root.add(m);
+}
+
+/**
+ * Plante une forêt : plusieurs modèles d'arbres répartis au hasard, avec leur ombre au sol.
+ * `pick(x, y, z)` choisit le modèle (sinon ils alternent) ; `E` : relief éventuel.
+ */
+function forest(t, rng, root, variants, count, opts, { E = null, scale = [0.8, 1.6], shadow = 3.2, pick = null } = {}) {
+    const cap = Math.ceil(count / (pick ? 1 : variants.length)) + 2;
+    const meshes = variants.map(g => instanced(root, g, vc({ flatShading: true, side: THREE.DoubleSide }), cap, false));
+    const n = variants.map(() => 0), shadows = [];
+    scatter(t, rng, count, opts, (x, z, i) => {
+        const y = E && !E.flat ? E.terrainAt(x, z) - 0.25 : 0;
+        const k = pick ? pick(x, y, z) : i % variants.length;
+        if (n[k] >= cap) return;
+        const s = scale[0] + rng() * (scale[1] - scale[0]);
+        place(meshes[k], n[k]++, x, y, z, s, rng() * 6.28, s, s * (0.9 + rng() * 0.25), s);
+        shadows.push([x, y + 0.3, z, shadow * s]);
+    });
+    meshes.forEach((m, k) => { m.count = n[k]; });
+    groundShadows(root, shadows);
 }
 
 /** Rocher bosselé : icosaèdre déformé par du bruit, couleurs variées. */
@@ -581,27 +729,10 @@ export function makeLog() {
 
 // ---------- Montagne : sapins, rochers, chalets, téléphérique, aigles ----------
 function montagne(t, rng, root, life, E) {
-    const tree = mergeColored([
-        [new THREE.CylinderGeometry(0.3, 0.45, 3, 6).translate(0, 1.5, 0), 0x5a3d25],
-        [new THREE.ConeGeometry(3.2, 5, 8).translate(0, 4.4, 0), 0x1f5235],
-        [new THREE.ConeGeometry(2.5, 4.4, 8).translate(0, 6.8, 0), 0x23603d],
-        [new THREE.ConeGeometry(1.7, 3.6, 8).translate(0, 9, 0), 0x2a6b45],
-    ]);
-    const snowTree = mergeColored([
-        [new THREE.CylinderGeometry(0.3, 0.45, 3, 6).translate(0, 1.5, 0), 0x5a3d25],
-        [new THREE.ConeGeometry(3.2, 5, 8).translate(0, 4.4, 0), 0x1f5235],
-        [new THREE.ConeGeometry(2.6, 4.2, 8).translate(0, 6.9, 0), 0xe8f0f8],
-        [new THREE.ConeGeometry(1.7, 3.6, 8).translate(0, 9, 0), 0xf6f9fc],
-    ]);
-    const trees = instanced(root, tree, vc({ flatShading: true }), 900);
-    const snowy = instanced(root, snowTree, vc({ flatShading: true }), 500);
-    let a = 0, b2 = 0;
-    scatter(t, rng, 1400, { margin: 4, extent: 330 }, (x, z) => {
-        const y = E.terrainAt(x, z), s = 0.8 + rng() * 0.9;
-        if (y > E.max + 26 + rng() * 20) { if (b2 < 500) place(snowy, b2++, x, y - 0.3, z, s, rng() * 6); }
-        else if (a < 900) place(trees, a++, x, y - 0.3, z, s, rng() * 6);
+    const snowLine = E.max + 24;
+    forest(t, rng, root, [pineTree(1), pineTree(2, { tiers: 6, hue: 0.37 }), pineTree(3, { snow: 0.85 }), pineTree(4, { snow: 1, tiers: 4 })], 1000, { margin: 4, extent: 330 }, {
+        E, shadow: 2.6, pick: (x, y, z) => (y > snowLine + ((x * 7 + z * 3) % 20) ? 2 + (Math.abs(Math.round(x)) % 2) : Math.abs(Math.round(z)) % 2),
     });
-    trees.count = a; snowy.count = b2;
 
     const rocks = instanced(root, rockGeometry(3, rockColors.boulder), vc({ flatShading: true }), 220);
     rocks.count = scatter(t, rng, 220, { margin: 3, extent: 300 }, (x, z, i) => {
@@ -834,13 +965,17 @@ function plage(t, rng, root, life) {
 }
 
 // ---------- Ville de nuit : gratte-ciel, néons, réverbères ----------
-function windowTexture(rng, hue) {
+function windowTexture(rng, hue, lit = 0.42, ww = 7, wh = 9) {
     return canvasTex(128, 256, (g, w, h) => {
         g.fillStyle = '#0c0d14'; g.fillRect(0, 0, w, h);
-        for (let y = 6; y < h; y += 14) for (let x = 6; x < w; x += 12) {
-            const on = rng() < 0.42;
-            g.fillStyle = on ? (rng() < 0.2 ? `hsl(${hue},90%,70%)` : `hsl(${40 + rng() * 15},${60 + rng() * 30}%,${55 + rng() * 25}%)`) : '#161822';
-            g.fillRect(x, y, 7, 9);
+        for (let y = 6; y < h; y += wh + 5) {
+            // Certains étages sont entièrement éteints, d'autres entièrement allumés
+            const floor = rng();
+            for (let x = 5; x < w; x += ww + 5) {
+                const on = floor < 0.12 ? false : floor > 0.9 ? true : rng() < lit;
+                g.fillStyle = on ? (rng() < 0.25 ? `hsl(${hue},90%,${60 + rng() * 20}%)` : `hsl(${38 + rng() * 18},${55 + rng() * 35}%,${50 + rng() * 30}%)`) : '#171923';
+                g.fillRect(x, y, ww, wh);
+            }
         }
     });
 }
@@ -854,30 +989,66 @@ function canvasTex(w, h, draw) {
     return t;
 }
 function ville(t, rng, root, life) {
-    // Immeubles posés sur une grille de rues, jamais trop près de la piste
-    const variants = [[18, 40, 18], [22, 70, 20], [16, 110, 16], [26, 30, 22], [20, 150, 20], [30, 55, 26]];
-    const hues = [320, 190, 280, 30];
-    const meshes = variants.map(([w, h, d], k) => {
-        const geo = new THREE.BoxGeometry(w, h, d).translate(0, h / 2, 0);
-        const uv = geo.attributes.uv;
+    // Immeubles : sept silhouettes, cinq styles de façade, tailles et teintes tirées au hasard
+    const part = (w, h, d, x = 0, y = 0, z = 0, win = true) => {
+        const g = new THREE.BoxGeometry(w, h, d).toNonIndexed().translate(x, y + h / 2, z);
+        const uv = g.attributes.uv;
         for (let i = 0; i < uv.count; i++) {
-            // Les fenêtres gardent leur taille, quelle que soit la façade
-            const face = Math.floor(i / 4), horiz = face < 2 ? d : w;
-            uv.setXY(i, uv.getX(i) * horiz / 10, uv.getY(i) * (face === 2 || face === 3 ? d / 10 : h / 18));
+            // Les fenêtres gardent leur taille, quelle que soit la façade ; toits et pièces techniques sans fenêtres
+            const face = Math.floor(i / 6), horiz = face < 2 ? d : w, roof = face === 2 || face === 3;
+            if (!win || roof) uv.setXY(i, 0.001, 0.001);
+            else uv.setXY(i, uv.getX(i) * horiz / 10, uv.getY(i) * h / 18);
         }
-        const tex = windowTexture(rng, hues[k % hues.length]);
-        return instanced(root, geo, new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 1.1, roughness: 0.4, metalness: 0.4 }), 140);
-    });
-    const counts = variants.map(() => 0);
+        return g;
+    };
+    const round = (r, h, y = 0) => {
+        const g = new THREE.CylinderGeometry(r, r, h, 14, 1).toNonIndexed().translate(0, y + h / 2, 0);
+        const uv = g.attributes.uv, n = g.attributes.normal;
+        for (let i = 0; i < uv.count; i++) {
+            if (Math.abs(n.getY(i)) > 0.5) uv.setXY(i, 0.001, 0.001);
+            else uv.setXY(i, uv.getX(i) * r * 0.62, uv.getY(i) * h / 18);
+        }
+        return g;
+    };
+    const join = list => {
+        const pos = [], nor = [], uv = [];
+        for (const g of list) { pos.push(...g.attributes.position.array); nor.push(...g.attributes.normal.array); uv.push(...g.attributes.uv.array); }
+        const out = new THREE.BufferGeometry();
+        out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+        out.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+        out.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+        return out;
+    };
+    // [géométrie, hauteur, immeuble bas (peut border la piste)]
+    const shapes = [
+        [join([part(20, 44, 18), part(4, 3, 4, 5, 44, 3, false), part(6, 2, 5, -4, 44, -3, false)]), 47, true],                                  // barre avec locaux techniques
+        [join([part(24, 46, 22), part(17, 34, 15, 0, 46), part(10, 22, 9, 0, 80), part(1, 16, 1, 0, 102, 0, false)]), 118, false],               // tour à gradins et flèche
+        [join([part(30, 12, 24), part(11, 70, 11, -8, 12, 0), part(11, 46, 11, 8, 12, 2)]), 82, false],                                           // deux tours sur un socle
+        [join([round(10, 96), round(7.5, 14, 96), part(0.8, 22, 0.8, 0, 110, 0, false)]), 132, false],                                            // tour ronde à antenne
+        [join([part(26, 30, 12, 0, 0, -6), part(12, 30, 14, -7, 0, 7), part(5, 5, 5, 6, 30, -6, false)]), 35, true],                              // immeuble en L
+        [join([part(18, 150, 18), part(18.6, 2, 18.6, 0, 50, 0, false), part(18.6, 2, 18.6, 0, 100, 0, false), part(12, 12, 12, 0, 150), part(0.7, 26, 0.7, 0, 162, 0, false)]), 188, false],   // gratte-ciel ceinturé
+        [join([part(32, 20, 26), part(8, 6, 8, -8, 20, -5, false), round(3, 7, 20).translate(8, 0, 5), part(22, 1.2, 0.6, 0, 20, 12.6, false)]), 27, true],   // entrepôt, citerne et enseigne
+    ];
+    const styles = [[320, 0.42, 7, 9], [190, 0.3, 9, 5], [45, 0.55, 5, 10], [280, 0.36, 10, 3], [150, 0.25, 4, 4]];   // teinte, part de fenêtres allumées, largeur, hauteur
+    const textures = styles.map(([hue, lit, ww, wh]) => windowTexture(rng, hue, lit, ww, wh));
+    const CAP = 120;
+    const meshes = shapes.map(([geo], k) => instanced(root, geo, new THREE.MeshBasicMaterial({ map: textures[k % textures.length] }), CAP, false));
+    const counts = shapes.map(() => 0);
+    const low = shapes.map((sh, k) => (sh[2] ? k : -1)).filter(k => k >= 0);
     const { minX, maxX, minZ, maxZ } = t.bbox;
     const roofs = [];
-    for (let x = minX - 320; x <= maxX + 320; x += 38) for (let z = minZ - 320; z <= maxZ + 320; z += 38) {
-        const near = t.distanceFree(x, z);
-        if (near.d < near.limit + 22 || rng() < 0.12) continue;
-        const k = near.d > near.limit + 140 ? Math.floor(rng() * variants.length) : [0, 3, 5][Math.floor(rng() * 3)];
-        if (counts[k] >= 140) continue;
-        place(meshes[k], counts[k]++, x + (rng() - 0.5) * 6, 0, z + (rng() - 0.5) * 6, 1, Math.floor(rng() * 4) * Math.PI / 2);
-        if (rng() < 0.3) roofs.push([x, variants[k][1], z]);
+    for (let x = minX - 340; x <= maxX + 340; x += 40) for (let z = minZ - 340; z <= maxZ + 340; z += 40) {
+        const px = x + (rng() - 0.5) * 12, pz = z + (rng() - 0.5) * 12;
+        const near = t.distanceFree(px, pz);
+        if (near.d < near.limit + 26 || rng() < 0.14) continue;
+        const k = near.d > near.limit + 120 ? Math.floor(rng() * shapes.length) : low[Math.floor(rng() * low.length)];
+        if (counts[k] >= CAP) continue;
+        const sx = 0.8 + rng() * 0.45, sy = 0.65 + rng() * 0.8, sz = 0.8 + rng() * 0.45;
+        place(meshes[k], counts[k], px, 0, pz, 1, Math.floor(rng() * 4) * Math.PI / 2, sx, sy, sz);
+        // Chaque immeuble a sa teinte : froide, chaude ou sombre
+        C.setHSL(rng(), 0.25 + rng() * 0.3, 0.55 + rng() * 0.4); meshes[k].setColorAt(counts[k], C);
+        counts[k]++;
+        if (rng() < 0.3) roofs.push([px, shapes[k][1] * sy, pz]);
     }
     meshes.forEach((m, k) => { m.count = counts[k]; });
     // Enseignes et feux d'antenne sur les toits

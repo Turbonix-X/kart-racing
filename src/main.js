@@ -154,6 +154,24 @@ input.on('pause', () => {
     game?.togglePause();
 });
 input.on('camera', () => game?.nextCamera());
+input.on('pads', n => ui.setPadCount(n));
+
+/** Manette dans les menus : A valide, B revient, Start lance ou met en pause. */
+function handlePad(p) {
+    if (!game || !(p.a || p.b || p.start)) return;
+    const vis = id => !document.getElementById(id).hidden;
+    const click = id => document.getElementById(id).click();
+    if (['confirm-overlay', 'settings-overlay', 'help-overlay', 'news-overlay'].some(vis)) { ui.closeTopOverlay(); return; }
+    if (vis('results-overlay')) { if (p.b) click('results-menu'); else click('results-next'); return; }
+    if (game.state === 'intro') { if (p.a || p.start) game.skipIntro(); return; }
+    if (game.state === 'countdown' || game.state === 'racing') {
+        if (p.start) game.togglePause();
+        else if (game.paused && p.a) game.setPaused(false);
+        return;
+    }
+    if (ui.titleVisible) { if (p.a || p.start) ui.handlers.play?.(); return; }
+    if (ui.menuVisible) { if (p.start) click('start-btn'); else if (p.b) ui.handlers.home?.(); }
+}
 // Une touche ou un clic passe la cinématique
 window.addEventListener('keydown', e => { if (game?.state === 'intro' && e.code !== 'Escape') game.skipIntro(); });
 window.addEventListener('pointerdown', e => { if (game?.state === 'intro' && !e.target.closest('button')) game.skipIntro(); });
@@ -165,6 +183,7 @@ function loop(now) {
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
     if (!game) return;
+    handlePad(input.pollPads());
     if (ui.menuVisible) preview?.frame(dt);
     else game.frame(dt);
 }

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Galerie des pilotes TurboKart</title>
+<style>
+    body { margin: 0; background: #14181a; color: #fff; font: 14px system-ui, sans-serif; }
+    #grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding: 6px; }
+    figure { margin: 0; background: radial-gradient(circle at 50% 35%, #3a4a40, #101512 75%); border-radius: 10px; text-align: center; }
+    img { width: 100%; display: block; }
+</style>
+<script type="importmap">{ "imports": { "three": "../vendor/three.module.js" } }</script>
+</head>
+<body>
+<!-- Outil de développement : affiche les 10 pilotes. Ajouter ?skin=or ou ?skin=nuit, ?vue=corps pour le corps entier. -->
+<div id="grid"></div>
+<script type="module">
+import * as THREE from 'three';
+import { buildCharacterModel } from '../src/characters3d.js';
+import { CHARACTERS, CHARACTER_IDS } from '../src/config.js';
+
+const q = new URLSearchParams(location.search), skin = q.get('skin') ?? 'classique', full = q.get('vue') === 'corps', only = q.get('id');
+const r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+r.setSize(420, 420);
+r.toneMapping = THREE.ACESFilmicToneMapping;
+const scene = new THREE.Scene();
+const pm = new THREE.PMREMGenerator(r), env = new THREE.Scene();
+env.background = new THREE.Color(0x8899aa);
+const panel = new THREE.Mesh(new THREE.PlaneGeometry(20, 10), new THREE.MeshBasicMaterial({ color: new THREE.Color(0xffffff).multiplyScalar(5), side: THREE.DoubleSide }));
+panel.position.set(0, 12, 4); panel.lookAt(0, 0, 0); env.add(panel);
+scene.environment = pm.fromScene(env, 0.03).texture;
+const key = new THREE.DirectionalLight(0xffffff, 2.2); key.position.set(2, 3, 4);
+scene.add(key, new THREE.HemisphereLight(0xffffff, 0x404040, 0.9));
+const cam = new THREE.PerspectiveCamera(24, 1, 0.1, 20);
+const angle = +(q.get('a') ?? -0.38);
+for (const id of CHARACTER_IDS) {
+    if (only && only !== id) continue;
+    const m = buildCharacterModel(id, skin);
+    m.root.rotation.y = angle;
+    scene.add(m.root);
+    if (full) { cam.position.set(1.2, 0.9, 3.2); cam.lookAt(0, 0.38, 0.1); } else { cam.position.set(0.5, 0.86, 1.95); cam.lookAt(0, 0.6, 0.02); }
+    if (q.get('zoom')) { cam.position.set(0.25, 0.75, 0.95); cam.lookAt(0, 0.69, 0.05); }
+    r.render(scene, cam);
+    const fig = document.createElement('figure'), img = new Image();
+    img.src = r.domElement.toDataURL();
+    fig.append(img, CHARACTERS[id].name);
+    document.getElementById('grid').append(fig);
+    scene.remove(m.root);
+}
+</script>
+</body>
+</html>

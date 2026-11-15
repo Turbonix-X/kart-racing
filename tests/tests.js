@@ -317,7 +317,9 @@ test('37. Boîte bonus : ramassage, turbo, bouclier, flaque, réapparition', () 
     car.item = 'oil';
     const n = sim.oils.length;
     sim.step(FIXED_DT, [INPUT({ useItem: true })]);
-    assert(sim.oils.length === n + 1, 'flaque');
+    assert(sim.projectiles.some(p => p.kind === 'bottle'), 'la bouteille part');
+    for (let i = 0; i < 90; i++) sim.step(FIXED_DT, [INPUT()]);
+    assert(sim.oils.length === n + 1, 'flaque à l\'atterrissage de la bouteille');
     // On s'éloigne : la boîte réapparaît après quelques secondes
     car.v.x += 40; track.locate(car.v.x, car.v.z, -1, car.nav); car.lastS = car.nav.s; car.px = car.v.x; car.pz = car.v.z;
     for (let i = 0; i < 60 * 8; i++) sim.step(FIXED_DT, [INPUT()]);
@@ -391,7 +393,7 @@ test('Objets : chacun a un effet réel en course', () => {
     };
     let c = fire('turbo'); assert(c.me.v.boost > 1.5, 'turbo');
     c = fire('shield'); assert(c.me.v.shield > 5, 'bouclier');
-    c = fire('oil'); assert(c.sim.oils.some(o => o.owner === c.me), 'huile');
+    c = fire('oil'); for (let i = 0; i < 90; i++) c.sim.step(FIXED_DT, [INPUT({ throttle: 1 })]); assert(c.sim.oils.some(o => o.owner === c.me), 'huile');
     c = fire('ghost'); assert(c.me.v.ghost > 3, 'fantôme');
     c = fire('magnet'); assert(c.me.v.magnet > 3, 'aimant');
     c = fire('spring'); assert(c.me.v.vy > 10, 'ressort');
@@ -557,7 +559,7 @@ test('Pilotes : 10 personnages, chacun change les stats et a son talent', () => 
         const a = getSpec('sport'), b = getSpec('sport', id);
         assert(['topSpeed', 'accel', 'yaw', 'offroadTop', 'chargeRate'].some(k => Math.abs(a[k] - b[k]) > 1e-6), `${id} ne change rien`);
     }
-    assert(getSpec('sport', 'bob').mass > getSpec('sport', 'lina').mass, 'Bob est lourd');
+    assert(getSpec('sport', 'bougadi').mass > getSpec('sport', 'lina').mass, 'Bougadi est lourd');
     assert(getSpec('sport', 'lina').offroadTop > getSpec('sport').offroadTop, 'Lina va plus vite hors-piste');
 });
 test('Pilotes : chaque adversaire porte le nom d\'un des 10 personnages, entre 4 et 8 pilotes', () => {
@@ -570,7 +572,7 @@ test('Pilotes : chaque adversaire porte le nom d\'un des 10 personnages, entre 4
         assert(new Set(names).size === names.length, 'deux adversaires du même nom');
         assert(bots.every(b => CHARACTERS[b.character]?.name === b.name && b.character !== 'bob'), 'nom inconnu ou pilote du joueur');
     }
-    assert(buildRoster({ mode: 'tt', racers: 8, players: [{ character: 'zoe' }] }).length === 0, 'chrono : seul');
+    assert(buildRoster({ mode: 'tt', racers: 8, players: [{ character: 'doc' }] }).length === 0, 'chrono : seul');
 });
 test('Roues : 3 types, les crampons tiennent mieux sur la glace', () => {
     assert(Object.keys(WHEELS).length === 3, 'trois roues');
@@ -582,13 +584,13 @@ test('Roues : 3 types, les crampons tiennent mieux sur la glace', () => {
     assert(grip('crampons') > grip('route'), 'crampons sur la glace');
     assert(getSpec('sport', null, 'slick').topSpeed > getSpec('sport', null, 'crampons').topSpeed, 'slicks plus rapides');
 });
-test('Talents : le bouclier de Zoé dure plus longtemps, le saut de Nova est plus haut', () => {
+test('Talents : le bouclier de Doc Zinzin dure plus longtemps, le saut de Nova est plus haut', () => {
     const t = getTrack('droite');
     const make = character => { const car = createCar(t, 'sport', { human: true, playerIndex: 0, character }); const sim = new RaceSim({ track: t, laps: 1, cars: [car] }); return { car, sim }; };
-    const a = make('zoe'), b = make('bob');
+    const a = make('doc'), b = make('bob');
     a.car.item = 'shield'; b.car.item = 'shield';
     a.sim.step(FIXED_DT, [INPUT({ useItem: true })]); b.sim.step(FIXED_DT, [INPUT({ useItem: true })]);
-    assert(a.car.v.shield > b.car.v.shield, 'bouclier de Zoé');
+    assert(a.car.v.shield > b.car.v.shield, 'bouclier de Doc Zinzin');
     assert(getSpec('sport', 'nova').hop > getSpec('sport', 'bob').hop, 'saut de Nova');
 });
 

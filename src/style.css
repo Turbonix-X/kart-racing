@@ -193,7 +193,7 @@ body.cinema #minimap, body.cinema #pause-btn { opacity: 0; pointer-events: none;
 #minimap, #pause-btn { transition: opacity .4s; }
 .hud { position: absolute; overflow: hidden; text-shadow: 0 1px 3px rgba(0,0,0,.8); }
 .hud-tl { position: absolute; top: 12px; left: 12px; display: flex; flex-direction: column; gap: 5px; }
-.hud-box { background: rgba(10,14,11,.72); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); padding: 5px 12px; border-radius: 10px; border: 1px solid rgba(34,197,94,.32); font-weight: 700; font-size: .88rem; font-variant-numeric: tabular-nums; }
+.hud-box { background: rgba(10,14,11,.72); padding: 5px 12px; border-radius: 10px; border: 1px solid rgba(34,197,94,.32); font-weight: 700; font-size: .88rem; font-variant-numeric: tabular-nums; }
 .hud-box small { color: #b6c7ba; font-weight: 600; font-size: .68rem; margin-right: 6px; text-transform: uppercase; letter-spacing: .6px; }
 .hud-pos { font-size: 2rem; font-weight: 900; line-height: 1.1; color: #ff8c1a; align-self: flex-start; border-color: rgba(255,140,26,.5); }
 .hud-pos sup { font-size: .9rem; }
@@ -218,7 +218,7 @@ body.cinema #minimap, body.cinema #pause-btn { opacity: 0; pointer-events: none;
 .gauge.boosting { animation: gauge-shake .12s linear infinite; }
 @keyframes gauge-shake { 25% { transform: translate(-1px, 1px); } 75% { transform: translate(1px, -1px); } }
 
-.item-slot { position: absolute; right: 156px; bottom: 26px; width: 64px; height: 64px; border: 2px solid rgba(34,197,94,.55); border-radius: 18px; background: rgba(10,14,11,.72); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); display: grid; place-items: center; }
+.item-slot { position: absolute; right: 156px; bottom: 26px; width: 64px; height: 64px; border: 2px solid rgba(34,197,94,.55); border-radius: 18px; background: rgba(10,14,11,.72); display: grid; place-items: center; }
 .slot-ico .icon { width: 42px; height: 42px; vertical-align: middle; }
 .item-slot.full { border-color: #ff8c1a; box-shadow: 0 0 16px rgba(255,140,26,.6); animation: slot-glow 1s ease-in-out infinite alternate; }
 .item-slot.full .slot-ico { animation: slot-pop .4s var(--spring); display: block; }
@@ -251,7 +251,7 @@ body.cinema #minimap, body.cinema #pause-btn { opacity: 0; pointer-events: none;
 .toast-hud.info { color: #fff; font-size: 1.1rem; }
 @keyframes toast-hud { 0% { opacity: 0; transform: translateY(14px) scale(.75); } 14% { opacity: 1; transform: translateY(0) scale(1.08); } 22% { transform: scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
 
-#minimap { position: fixed; z-index: 3; top: 12px; right: 62px; width: 150px; height: 150px; background: rgba(10,14,11,.55); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); border: 1px solid rgba(34,197,94,.32); border-radius: 18px; pointer-events: none; }
+#minimap { position: fixed; z-index: 3; top: 12px; right: 62px; width: 150px; height: 150px; background: rgba(10,14,11,.55); border: 1px solid rgba(34,197,94,.32); border-radius: 18px; pointer-events: none; }
 #minimap.split { left: 50%; right: auto; top: auto; bottom: 12px; width: 120px; height: 120px; transform: translateX(-50%); }
 #pause-btn { position: fixed; z-index: 5; top: 12px; right: 12px; background: rgba(10,14,11,.72); }
 
@@ -295,11 +295,14 @@ body.cinema #minimap, body.cinema #pause-btn { opacity: 0; pointer-events: none;
 
 /* ---------- Tactile ---------- */
 #touch-controls { position: fixed; inset: auto 0 0 0; z-index: 4; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 12px calc(12px + env(safe-area-inset-bottom)); pointer-events: none; }
-#touch-controls button { pointer-events: auto; width: 62px; height: 62px; border-radius: 50%; background: rgba(10,14,11,.55); border: 2px solid rgba(34,197,94,.55); color: #fff; font-size: 1.35rem; touch-action: none; transition: transform .15s var(--spring); }
-#touch-controls button.gas { width: 76px; height: 76px; background: rgba(255,140,26,.55); border-color: #ff8c1a; }
+#touch-controls button { pointer-events: auto; width: 68px; height: 68px; border-radius: 50%; background: rgba(10,14,11,.55); border: 2px solid rgba(34,197,94,.55); color: #fff; font-size: 1.35rem; touch-action: none; transition: transform .15s var(--spring); }
+#touch-controls button.gas { width: 86px; height: 86px; background: rgba(255,140,26,.55); border-color: #ff8c1a; }
 #touch-controls button.down { background: rgba(255,140,26,.85); transform: scale(.92); }
 .touch-left, .touch-right { display: flex; gap: 8px; align-items: flex-end; }
-.touch-right { flex-wrap: wrap; justify-content: flex-end; max-width: 230px; }
+/* Les flèches de direction : plus grandes, faciles à trouver sans regarder */
+#touch-controls .touch-left { gap: 12px; }
+#touch-controls .touch-left button { width: 92px; height: 92px; font-size: 2rem; border-width: 3px; }
+.touch-right { flex-wrap: wrap; justify-content: flex-end; max-width: 250px; }
 body.touch .gauge { bottom: auto; top: 164px; right: 10px; width: 92px; height: 92px; }
 body.touch .gauge-val { font-size: 1.35rem; }
 body.touch .item-slot { bottom: auto; top: 262px; right: 27px; }
@@ -364,11 +367,11 @@ body.touch .status-row { bottom: auto; top: 340px; right: 12px; }
 .gauge-val { font-size: 2.1rem; font-style: italic; text-shadow: 0 2px 0 rgba(0,0,0,.6), 0 0 14px rgba(255,140,26,.45); }
 .toast-hud { font-size: 1.7rem; font-style: italic; letter-spacing: .5px; -webkit-text-stroke: 1px rgba(0,0,0,.35); text-shadow: 0 3px 0 rgba(0,0,0,.45), 0 0 18px rgba(0,0,0,.6); }
 .toast-hud.info { font-family: var(--font); font-weight: 900; font-style: normal; -webkit-text-stroke: 0; }
-.toast-hud.with-avatar { display: inline-flex; align-items: center; gap: 10px; padding: 4px 16px 4px 4px; border-radius: 999px; background: rgba(10,14,11,.7); border: 1px solid rgba(255,255,255,.18); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.toast-hud.with-avatar { display: inline-flex; align-items: center; gap: 10px; padding: 4px 16px 4px 4px; border-radius: 999px; background: rgba(10,14,11,.7); border: 1px solid rgba(255,255,255,.18); }
 .toast-hud.with-avatar img { width: 46px; height: 46px; border-radius: 50%; background: radial-gradient(circle at 50% 35%, #3b4a3f, #121815); border: 2px solid currentColor; }
 .count-num { font-style: italic; -webkit-text-stroke: 2px rgba(0,0,0,.35); }
 .wrong-way { font-weight: 400; font-style: italic; }
-.hud-me { display: flex; align-items: center; gap: 8px; padding: 3px 12px 3px 3px; border-radius: 999px; background: rgba(10,14,11,.72); border: 1px solid rgba(255,140,26,.5); align-self: flex-start; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.hud-me { display: flex; align-items: center; gap: 8px; padding: 3px 12px 3px 3px; border-radius: 999px; background: rgba(10,14,11,.72); border: 1px solid rgba(255,140,26,.5); align-self: flex-start; }
 .hud-me img { width: 40px; height: 40px; border-radius: 50%; background: radial-gradient(circle at 50% 35%, #ff8c1a55, #121815 70%); }
 .hud-me b { display: block; font-family: var(--display); font-weight: 400; font-size: .95rem; line-height: 1.05; }
 .hud-me small { color: #86efac; font-weight: 800; font-size: .66rem; text-transform: uppercase; letter-spacing: .6px; }
@@ -420,6 +423,26 @@ body.touch .status-row { bottom: auto; top: 340px; right: 12px; }
 .res-table td.who em { color: var(--muted); font-style: normal; font-weight: 600; }
 .res-table td.rk { font-family: var(--display); }
 
+/* ---------- Alpha 1.6 ---------- */
+/* Étiquette de version encadrée, à côté du logo : un clic ouvre le journal de toutes les versions */
+.version-badge { flex-shrink: 0; padding: 2px 9px; border: 1.5px solid var(--yellow); border-radius: 8px; background: rgba(255,140,26,.12); color: var(--yellow); font-family: var(--font); font-size: .72rem; font-weight: 800; white-space: nowrap; cursor: pointer; letter-spacing: .3px; vertical-align: middle; transition: transform .3s var(--spring), background .2s, color .2s; }
+.version-badge:hover { background: var(--yellow); color: #15131c; transform: translateY(-2px) rotate(-2deg); }
+.version-badge.big { font-size: 1rem; padding: 5px 14px; border-width: 2px; border-radius: 12px; background: rgba(10,14,11,.6); align-self: flex-end; margin-bottom: 12px; animation: tx-reveal .6s var(--ease) .3s both; }
+.logo-row { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; }
+.header-left .version-badge { margin-left: 2px; }
+.load-title .version-badge { font-size: .8rem; }
+.pad-solo:empty { display: none; }
+.pad-solo { color: var(--mauve); font-weight: 700; }
+.wide-field { flex-basis: 100% !important; }
+/* Résultats : un seul tableau complet */
+.res-scroll { overflow-x: auto; margin-top: 8px; }
+.res-table th { text-align: left; padding: 5px 6px; font-size: .7rem; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); white-space: nowrap; }
+.res-table th:last-child, .res-table td:last-child { text-align: right; }
+.res-table td { white-space: nowrap; }
+.res-extra { margin: 10px 0 0; font-size: .82rem; color: var(--muted); font-variant-numeric: tabular-nums; text-align: center; }
+.panel.wide { max-width: 940px; }
+.speed-lines { will-change: opacity; }
+
 /* ---------- Petits écrans ---------- */
 @media (max-width: 899px) {
     .res-grid, .help-grid, .pilot-layout { grid-template-columns: 1fr; }
@@ -436,7 +459,8 @@ body.touch .status-row { bottom: auto; top: 340px; right: 12px; }
     .logo img { width: 32px; height: 32px; }
     .arrow-btn { width: 38px; height: 38px; margin-top: -19px; }
     .showroom-label { padding: 0 44px; }
-    .version-tag { display: none; }
+    .header-left .version-badge { font-size: .62rem; padding: 1px 5px; }
+    .version-badge.big { margin-bottom: 4px; }
     .biome-grid { grid-template-columns: repeat(3, 1fr); }
     .pilot-grid { gap: 4px; }
     .pilot-show { grid-template-columns: 96px 1fr; }

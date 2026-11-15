@@ -443,6 +443,7 @@ export function buildVehicleModel(type, color, { ghost = false, driver = true, c
         pilot = buildCharacterModel(character, skin);
         pilot.root.position.set(sx, sy, sz);
         pilot.root.scale.setScalar(sc);
+        pilot.baseY = sy;
         chassis.add(pilot.root);
     }
 
@@ -524,4 +525,6 @@ export function animateModel(model, v, dt) {
         w.pivot.position.y = w.baseY + droop + bump + (air ? 0 : model.heave * 0.25);
     }
     if (model.rearMat) model.rearMat.emissiveIntensity = v.braking ? 6 : 1.1;
+    // Bob flotte au-dessus de son siège
+    if (model.pilot?.hover) model.pilot.root.position.y = model.pilot.baseY + 0.05 + Math.sin(model.shimmy * 0.12) * 0.012;
 }

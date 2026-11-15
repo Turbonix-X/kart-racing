@@ -3,7 +3,7 @@
 //  Toutes les valeurs à ajuster se trouvent ici.
 // ============================================================
 
-export const VERSION = 'Alpha 1.5';
+export const VERSION = 'Alpha 1.6';
 export const GAME_NAME = 'TurboKart';
 export const FIXED_DT = 1 / 60;        // pas de simulation (indépendant de l'écran)
 export const MS_TO_KMH = 3.6;          // 1 unité = 1 mètre
@@ -72,16 +72,16 @@ export function getSpec(type, character = null, wheels = 'route') {
  * `kart` : véhicule préféré (celui des adversaires) · `color` : peinture fétiche.
  */
 export const CHARACTERS = {
-    bob:    { name: 'Bob',        title: 'Le mécano',           color: 0xff8c1a, kart: 'truck',  stats: { accel: -5, offroad: 10 },             perk: 'heavy',   perkName: 'Costaud',         perkDesc: 'Pousse fort dans les chocs et ne se laisse pas bousculer' },
-    lina:   { name: 'Lina',       title: 'La pilote de rallye', color: 0xe74c3c, kart: 'sport',  stats: { handling: 8, offroad: 6, speed: -4 },  perk: 'rally',   perkName: 'Rallye',          perkDesc: 'Va 12 % plus vite hors de la piste' },
-    volt:   { name: 'Volt',       title: 'Le robot',            color: 0x00bcd4, kart: 'proto',  stats: { speed: 8, handling: -6 },             perk: 'turbo',   perkName: 'Surcharge',       perkDesc: 'Tous ses boosts durent 25 % plus longtemps' },
-    rosa:   { name: 'Mamie Rosa', title: 'La reine du drift',   color: 0xe91e63, kart: 'muscle', stats: { drift: 12, accel: -4 },              perk: 'drifter', perkName: 'Vieille école',   perkDesc: 'Charge ses boosts de drift 20 % plus vite' },
-    kiko:   { name: 'Kiko',       title: 'Le singe farceur',    color: 0xf39c12, kart: 'kart',   stats: { accel: 8, speed: -4 },                perk: 'lucky',   perkName: 'Chanceux',        perkDesc: 'Tire de meilleurs objets dans les boîtes mystère' },
-    frimas: { name: 'Frimas',     title: 'Le yéti',             color: 0xdfe9f3, kart: 'truck',  stats: { offroad: 8, accel: -6, handling: 2 }, perk: 'yeti',    perkName: 'Pattes de neige', perkDesc: 'Ne glisse presque pas sur la glace' },
-    rex:    { name: 'Rex',        title: 'Le dinosaure',        color: 0x2ecc71, kart: 'muscle', stats: { speed: 6, handling: -4 },             perk: 'tough',   perkName: 'Cuir épais',      perkDesc: 'Ses tête-à-queue durent moitié moins longtemps' },
-    nova:   { name: 'Nova',       title: 'L\'astronaute',       color: 0x3498db, kart: 'f1',     stats: { handling: 4, accel: 2 },              perk: 'astro',   perkName: 'Apesanteur',      perkDesc: 'Saut synchro et ressort beaucoup plus hauts' },
-    zoe:    { name: 'Zoé',        title: 'L\'inventrice',       color: 0x9b59b6, kart: 'drift',  stats: { accel: 4, drift: 4 },                 perk: 'gadgets', perkName: 'Bricoleuse',      perkDesc: 'Bouclier, fantôme, aimant et turbo durent 40 % plus longtemps' },
-    shin:   { name: 'Shin',       title: 'Le ninja',            color: 0x2c3e50, kart: 'sport',  stats: { handling: 6, drift: 4, speed: -2 },   perk: 'dodge',   perkName: 'Esquive',         perkDesc: '1 chance sur 4 d\'éviter un objet ou une flaque' },
+    bougadi:  { name: 'Bougadi Bougida',     title: 'Le villageois',            color: 0x8a5a3c, kart: 'truck',  stats: { accel: -5, offroad: 10 },             perk: 'heavy',   perkName: 'Costaud',       perkDesc: 'Pousse fort dans les chocs et ne se laisse pas bousculer' },
+    bob:      { name: 'Bob',                 title: 'Le robot pâtissier',       color: 0x9b6dff, kart: 'proto',  stats: { speed: 8, handling: -6 },             perk: 'turbo',   perkName: 'Surcharge',     perkDesc: 'Tous ses boosts durent 25 % plus longtemps' },
+    mamie:    { name: 'Mamie Endettée',      title: 'La reine du drift',        color: 0xe91e63, kart: 'muscle', stats: { drift: 12, accel: -4 },              perk: 'drifter', perkName: 'Vieille école', perkDesc: 'Charge ses boosts de drift 20 % plus vite' },
+    dino:     { name: 'Emmène-moi avec toi', title: 'Le dinosaure en peluche',  color: 0x7fd67a, kart: 'kart',   stats: { speed: 6, handling: -4 },             perk: 'tough',   perkName: 'Rembourré',     perkDesc: 'Ses tête-à-queue durent moitié moins longtemps' },
+    ninjacon: { name: 'Ninjacon',            title: 'Le ninja',                 color: 0x2c3e50, kart: 'sport',  stats: { handling: 6, drift: 4, speed: -2 },   perk: 'dodge',   perkName: 'Esquive',       perkDesc: '1 chance sur 4 d\'éviter un objet ou une flaque' },
+    doc:      { name: 'Doc Zinzin',          title: 'Le scientifique fou',      color: 0x3fd0c9, kart: 'drift',  stats: { accel: 4, drift: 4 },                 perk: 'gadgets', perkName: 'Inventions',    perkDesc: 'Bouclier, fantôme, aimant et turbo durent 40 % plus longtemps' },
+    lina:     { name: 'Lina',                title: 'La pilote de rallye',      color: 0xe74c3c, kart: 'sport',  stats: { handling: 8, offroad: 6, speed: -4 },  perk: 'rally',   perkName: 'Rallye',        perkDesc: 'Va 12 % plus vite hors de la piste' },
+    nova:     { name: 'Nova',                title: 'L\'astronaute',            color: 0x3498db, kart: 'f1',     stats: { handling: 4, accel: 2 },              perk: 'astro',   perkName: 'Apesanteur',    perkDesc: 'Saut synchro et ressort beaucoup plus hauts' },
+    corail:   { name: 'Capitaine Corail',    title: 'La pirate',                color: 0xf2c94c, kart: 'muscle', stats: { accel: 8, speed: -4 },                perk: 'lucky',   perkName: 'Trésor',        perkDesc: 'Tire de meilleurs objets dans les boîtes mystère' },
+    sven:     { name: 'Sven',                title: 'Le montagnard',            color: 0x1f7fc4, kart: 'truck',  stats: { offroad: 8, accel: -6, handling: 2 }, perk: 'yeti',    perkName: 'Crampons',      perkDesc: 'Ne glisse presque pas sur la glace' },
 };
 export const CHARACTER_IDS = Object.keys(CHARACTERS);
 

@@ -30,6 +30,25 @@ function missileModel() {
     return g;
 }
 
+/** Bouteille d'huile : verre sombre, étiquette, bouchon doré. */
+function bottleModel() {
+    const g = new THREE.Group();
+    const glass = mat(0x2a1c08, { metalness: 0.3, roughness: 0.12 });
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.6, 14), glass);
+    const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.22, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), glass);
+    shoulder.position.y = 0.3;
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.1, 0.3, 10), glass);
+    neck.position.y = 0.6;
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.1, 10), mat(0xf0b429, { metalness: 0.8, roughness: 0.3 }));
+    cap.position.y = 0.78;
+    const label = new THREE.Mesh(new THREE.CylinderGeometry(0.225, 0.225, 0.3, 14, 1, true), mat(0xffd23f));
+    label.position.y = -0.02;
+    const drop = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), mat(0x111116));
+    drop.position.set(0, 0, 0.23); drop.scale.set(1, 1.5, 0.3);
+    g.add(body, shoulder, neck, cap, label, drop);
+    return g;
+}
+
 function bombModel() {
     const g = new THREE.Group();
     const ball = new THREE.Mesh(new THREE.SphereGeometry(0.55, 18, 14), mat(0x15151a, { metalness: 0.6, roughness: 0.25 }));
@@ -153,6 +172,13 @@ export class ItemFX {
             case 'zap':
                 for (const target of e.targets) this.bolt(target.v.x, target.v.z);
                 break;
+            case 'splash': {
+                // La bouteille se brise : éclats de verre et gouttes d'huile
+                const gy = fx.h(e.x, e.z);
+                fx.sparks(e.x, gy + 0.3, e.z, 10);
+                for (let i = 0; i < 6; i++) fx.smoke(e.x + (Math.random() - 0.5) * 2, e.z + (Math.random() - 0.5) * 2, 0, 0, 0x15151a, 0.5);
+                break;
+            }
             case 'useItem': {
                 const c = e.car, v = c.v;
                 if (e.item === 'turbo') {
@@ -163,8 +189,6 @@ export class ItemFX {
                     this.flashes.push({ life: 0.45, max: 0.45, update: k => { ring.scale.setScalar(1 + (1 - k) * 3); ring.material.opacity = k; }, objects: [ring] });
                 } else if (e.item === 'spring') {
                     this.car(c).springTime = 0.6;
-                } else if (e.item === 'oil') {
-                    fx.burst(v.x - Math.sin(v.heading) * 4, (c.g ?? 0) + 0.8, v.z - Math.cos(v.heading) * 4);
                 }
                 break;
             }
@@ -198,7 +222,7 @@ export class ItemFX {
             alive.add(p.id);
             let m = this.projectiles.get(p.id);
             if (!m) {
-                m = p.kind === 'missile' ? missileModel() : p.kind === 'bomb' ? bombModel() : tornadoModel();
+                m = p.kind === 'missile' ? missileModel() : p.kind === 'bomb' ? bombModel() : p.kind === 'bottle' ? bottleModel() : tornadoModel();
                 this.scene.add(m);
                 this.projectiles.set(p.id, m);
             }
@@ -207,6 +231,9 @@ export class ItemFX {
                 m.rotation.set(0, p.heading, time * 8);
                 m.userData.flame.scale.setScalar(0.8 + Math.random() * 0.5);
                 fx.flame(p.x - Math.sin(p.heading) * 1.4, 0.8, p.z - Math.cos(p.heading) * 1.4, -Math.sin(p.heading) * 6, -Math.cos(p.heading) * 6);
+            } else if (p.kind === 'bottle') {
+                m.position.set(p.x, ROAD_Y + fx.h(p.x, p.z) + p.y, p.z);
+                m.rotation.x -= dt * 11; m.rotation.z += dt * 3;
             } else if (p.kind === 'bomb') {
                 m.position.set(p.x, ROAD_Y + fx.h(p.x, p.z) + p.y, p.z);
                 m.rotation.x += dt * 8;
